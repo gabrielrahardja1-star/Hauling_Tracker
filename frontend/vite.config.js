@@ -23,13 +23,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\/trips/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'api-cache', networkTimeoutSeconds: 10 },
-          },
-        ],
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [],
       },
     }),
   ],

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import { api } from '../lib/api';
@@ -16,8 +16,7 @@ function InfoRow({ label, value, mono }) {
 
 const WITA_OPTS = {
   timeZone: 'Asia/Makassar',
-  year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hour: '2-digit', minute: '2-digit',
   hour12: false,
 };
 
@@ -26,7 +25,18 @@ function toWITA(ts) {
   return new Intl.DateTimeFormat('id-ID', WITA_OPTS).format(new Date(ts));
 }
 
+function elapsed(ts) {
+  if (!ts) return '';
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
+}
+
 export default function JettyOperatorPage() {
+  const [jettyFilter, setJettyFilter] = useState('');
+  const [incoming, setIncoming] = useState([]);
+  const [incomingLoading, setIncomingLoading] = useState(true);
+
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -37,6 +47,34 @@ export default function JettyOperatorPage() {
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  const fetchIncoming = useCallback(async () => {
+    setIncomingLoading(true);
+    try {
+      const data = await api.getIncomingTrips(jettyFilter);
+      setIncoming(data);
+    } catch {
+      // silently fail — not critical
+    } finally {
+      setIncomingLoading(false);
+    }
+  }, [jettyFilter]);
+
+  useEffect(() => {
+    fetchIncoming();
+    const interval = setInterval(fetchIncoming, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, [fetchIncoming]);
+
+  function selectIncoming(t) {
+    setTrip(t);
+    setSearchInput(t.truck_id);
+    setTare('');
+    setTalenta('');
+    setCompleteError('');
+    setSuccess(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -77,6 +115,7 @@ export default function JettyOperatorPage() {
       const updated = await api.completeTrip(trip.trip_id, payload);
       setSuccess(updated);
       setTrip(null);
+      fetchIncoming();
     } catch (err) {
       setCompleteError(err.message);
     } finally {
@@ -125,7 +164,7 @@ export default function JettyOperatorPage() {
                   )}
                 </div>
                 <button onClick={resetSearch} className="btn-secondary mt-4 w-full text-sm py-3">
-                  Search another truck
+                  Done
                 </button>
               </div>
             </div>
@@ -152,7 +191,6 @@ export default function JettyOperatorPage() {
                 )}
               </button>
             </form>
-
             {searchError && (
               <div className="mt-3 rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">
                 {searchError}
@@ -161,15 +199,13 @@ export default function JettyOperatorPage() {
           </div>
         )}
 
-        {/* Trip found — complete form */}
+        {/* Trip details — complete form */}
         {trip && !success && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-slate-200">Trip Details</h2>
               <span className="badge badge-yellow">In Progress</span>
             </div>
-
-            {/* Read-only pit info */}
             <div className="bg-slate-800/60 rounded-xl px-4 mb-5">
               <InfoRow label="Truck ID" value={trip.truck_id} mono />
               <InfoRow label="Jetty" value={trip.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'} />
@@ -177,74 +213,104 @@ export default function JettyOperatorPage() {
               <InfoRow label="Gross Weight" value={`${trip.gross_weight_kg?.toLocaleString()} kg`} />
               <InfoRow label="Pit Time (WITA)" value={toWITA(trip.pit_timestamp)} />
             </div>
-
-            {/* Editable fields */}
             <form onSubmit={handleComplete} className="space-y-4">
               <div>
-                <label className="label">Tare Weight — kg (Pita Site)</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  className="input-field"
-                  placeholder="e.g. 18000"
-                  value={tare}
-                  onChange={(e) => { setTare(e.target.value); setCompleteError(''); }}
-                  min={1}
-                  required
-                />
+                <label className="label">Tare Weight — kg</label>
+                <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 18000"
+                  value={tare} onChange={(e) => { setTare(e.target.value); setCompleteError(''); }} min={1} required />
               </div>
-
               {trip.jetty_destination === 'talenta' && (
                 <div>
-                  <label className="label">Talenta's Reading — kg (Gross Talenta)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    className="input-field"
-                    placeholder="e.g. 41500"
-                    value={talenta}
-                    onChange={(e) => { setTalenta(e.target.value); setCompleteError(''); }}
-                    min={1}
-                    required
-                  />
+                  <label className="label">Talenta's Reading — kg</label>
+                  <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 41500"
+                    value={talenta} onChange={(e) => { setTalenta(e.target.value); setCompleteError(''); }} min={1} required />
                 </div>
               )}
-
-              {/* Live calculations preview */}
               {netPreview !== null && (
                 <div className="rounded-xl bg-slate-800/60 px-4 py-3 space-y-1.5">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">Net Weight</span>
-                    <span className={`font-semibold ${netPreview < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      {netPreview.toLocaleString()} kg
-                    </span>
+                    <span className={`font-semibold ${netPreview < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{netPreview.toLocaleString()} kg</span>
                   </div>
                   {deviPreview !== null && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Deviation (Tare − Talenta)</span>
-                      <span className={`font-semibold ${deviPreview < 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                        {deviPreview.toLocaleString()} kg
-                      </span>
+                      <span className="text-slate-400">Deviation</span>
+                      <span className={`font-semibold ${deviPreview < 0 ? 'text-red-400' : 'text-blue-400'}`}>{deviPreview.toLocaleString()} kg</span>
                     </div>
                   )}
                 </div>
               )}
-
               {completeError && (
                 <div className="rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">
                   {completeError}
                 </div>
               )}
-
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={resetSearch} className="btn-secondary flex-1">
-                  Cancel
-                </button>
-                <button type="submit" className="btn-success flex-2 flex-1" disabled={completing}>
+                <button type="button" onClick={resetSearch} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" className="btn-success flex-1" disabled={completing}>
                   {completing ? <Spinner className="h-5 w-5" /> : 'Clock Out (Keluar)'}
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Incoming vehicles */}
+        {!trip && !success && (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-200">Incoming Vehicles</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Refreshes every 30s</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded-lg px-2 py-1.5"
+                  value={jettyFilter}
+                  onChange={(e) => setJettyFilter(e.target.value)}
+                >
+                  <option value="">All Jettys</option>
+                  <option value="hasnur">Hasnur</option>
+                  <option value="talenta">Talenta</option>
+                </select>
+                <button onClick={fetchIncoming} className="text-slate-400 hover:text-white transition-colors p-1" title="Refresh">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {incomingLoading ? (
+              <div className="flex justify-center py-8"><Spinner /></div>
+            ) : incoming.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">No incoming vehicles</div>
+            ) : (
+              <div className="divide-y divide-slate-800/60">
+                {incoming.map((t) => (
+                  <button
+                    key={t.trip_id}
+                    onClick={() => selectIncoming(t)}
+                    className="w-full text-left px-4 py-3.5 hover:bg-slate-800/40 transition-colors active:bg-slate-700/40"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-slate-100">{t.truck_id}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
+                          {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
+                        </span>
+                        <span className="badge badge-gray">{t.coal_quality === 'raw' ? 'Raw' : 'Clean'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-xs text-slate-400">{t.gross_weight_kg?.toLocaleString()} kg gross</span>
+                      <span className="text-xs text-slate-500">{elapsed(t.pit_timestamp)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

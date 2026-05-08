@@ -29,6 +29,7 @@ async function request(method, path, body) {
 export const api = {
   // Trips
   createTrip:    (data)        => request('POST',  '/trips', data),
+  getIncomingTrips: (jetty)    => request('GET',   `/trips/incoming${jetty ? `?jetty=${jetty}` : ''}`),
   getActiveTrip: (truck_id)    => request('GET',   `/trips/active?truck_id=${encodeURIComponent(truck_id)}`),
   completeTrip:  (id, data)    => request('PATCH', `/trips/${id}`, data),
   listTrips:     (params = {}) => {

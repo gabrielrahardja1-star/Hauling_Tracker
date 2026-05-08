@@ -39,6 +39,26 @@ router.post('/', requireRole('pit_operator', 'admin'), async (req, res) => {
   res.status(201).json(trip);
 });
 
+// GET /trips/incoming?jetty= — jetty operator sees all in-progress trips today
+router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res) => {
+  const { jetty } = req.query;
+  const today = witaDate();
+
+  const conditions = [`date = $1`, `status = 'in_progress'`];
+  const values = [today];
+
+  if (jetty) {
+    conditions.push(`jetty_destination = $2`);
+    values.push(jetty);
+  }
+
+  const trips = await query(
+    `select * from trips where ${conditions.join(' and ')} order by pit_timestamp asc`,
+    values
+  );
+  res.json(trips);
+});
+
 // GET /trips/active?truck_id= — jetty operator fetches today's in_progress trip
 router.get('/active', requireRole('jetty_operator', 'admin'), async (req, res) => {
   const { truck_id } = req.query;
