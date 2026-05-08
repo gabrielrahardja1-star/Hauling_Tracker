@@ -58,7 +58,7 @@ export default function PitOperatorPage() {
   }
 
   return (
-    <Layout title="Pit Entry">
+    <Layout title="Stockpile Entry">
       <div className="space-y-5">
         {/* Success banner */}
         {success && (

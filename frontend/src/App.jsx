@@ -3,15 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { setAuthProvider } from './lib/api';
 import LoginPage from './pages/LoginPage';
-import PitOperatorPage from './pages/PitOperatorPage';
+import StockpileOperatorPage from './pages/StockpileOperatorPage';
 import JettyOperatorPage from './pages/JettyOperatorPage';
 import AdminPage from './pages/AdminPage';
 import Spinner from './components/Spinner';
 
 const ROLE_HOME = {
-  pit_operator:   '/pit',
-  jetty_operator: '/jetty',
-  admin:          '/admin',
+  stockpile_operator: '/stockpile',
+  jetty_operator:     '/jetty',
+  admin:              '/admin',
 };
 
 function RoleRoute({ roles, children }) {
@@ -46,9 +46,9 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/pit" element={
-        <RoleRoute roles={['pit_operator', 'admin']}>
-          <PitOperatorPage />
+      <Route path="/stockpile" element={
+        <RoleRoute roles={['stockpile_operator', 'admin']}>
+          <StockpileOperatorPage />
         </RoleRoute>
       } />
       <Route path="/jetty" element={

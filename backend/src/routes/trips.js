@@ -12,7 +12,7 @@ function witaDate() {
 }
 
 // POST /trips — pit operator creates a trip
-router.post('/', requireRole('pit_operator', 'admin'), async (req, res) => {
+router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) => {
   const { truck_id, jetty_destination, coal_quality, weather, gross_weight_kg, pit_tare_weight_kg } = req.body;
 
   if (!truck_id || !jetty_destination || !coal_quality || !weather || !gross_weight_kg || !pit_tare_weight_kg) {

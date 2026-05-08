@@ -4,9 +4,9 @@ import { useAuth } from '../hooks/useAuth';
 import Spinner from '../components/Spinner';
 
 const ROLE_HOME = {
-  pit_operator:   '/pit',
-  jetty_operator: '/jetty',
-  admin:          '/admin',
+  stockpile_operator: '/stockpile',
+  jetty_operator:     '/jetty',
+  admin:              '/admin',
 };
 
 export default function LoginPage() {

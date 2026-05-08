@@ -77,7 +77,7 @@ function UserModal({ onClose }) {
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [newRole, setNewRole] = useState('pit_operator');
+  const [newRole, setNewRole] = useState('stockpile_operator');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -105,7 +105,7 @@ function UserModal({ onClose }) {
     setUsers((prev) => prev.filter((u) => u.user_id !== id));
   }
 
-  const ROLE_LABELS = { pit_operator: 'Pit Operator', jetty_operator: 'Jetty Operator', admin: 'Admin' };
+  const ROLE_LABELS = { stockpile_operator: 'Stockpile Operator', jetty_operator: 'Jetty Operator', admin: 'Admin' };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
@@ -128,7 +128,7 @@ function UserModal({ onClose }) {
             <input type="password" className="input-field text-sm" placeholder="Password" value={newPass}
               onChange={(e) => setNewPass(e.target.value)} />
             <select className="input-field text-sm" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-              <option value="pit_operator">Pit Operator</option>
+              <option value="stockpile_operator">Stockpile Operator</option>
               <option value="jetty_operator">Jetty Operator</option>
               <option value="admin">Admin</option>
             </select>

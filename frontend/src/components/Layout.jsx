@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth';
 
 const ROLE_LABELS = {
-  pit_operator: 'Pit Operator',
+  stockpile_operator: 'Stockpile Operator',
   jetty_operator: 'Jetty Operator',
   admin: 'Admin',
 };

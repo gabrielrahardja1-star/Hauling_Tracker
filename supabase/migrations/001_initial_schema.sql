@@ -5,7 +5,7 @@ create extension if not exists "pgcrypto";
 create type jetty_destination_enum as enum ('hasnur', 'talenta');
 create type coal_quality_enum     as enum ('raw', 'clean');
 create type trip_status_enum      as enum ('in_progress', 'completed');
-create type user_role_enum        as enum ('pit_operator', 'jetty_operator', 'admin');
+create type user_role_enum        as enum ('stockpile_operator', 'jetty_operator', 'admin');
 
 -- Users table (replaces Supabase Auth)
 create table users (
