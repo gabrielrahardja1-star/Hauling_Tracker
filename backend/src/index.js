@@ -1,0 +1,20 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import tripsRouter from './routes/trips.js';
+import authRouter from './routes/auth.js';
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+app.use(express.json());
+
+app.use('/trips', tripsRouter);
+app.use('/auth', authRouter);
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
+app.listen(PORT, () => {
+  console.log(`Hauling Tracker API running on port ${PORT}`);
+});

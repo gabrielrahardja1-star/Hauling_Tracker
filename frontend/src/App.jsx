@@ -1,0 +1,77 @@
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { setAuthProvider } from './lib/api';
+import LoginPage from './pages/LoginPage';
+import PitOperatorPage from './pages/PitOperatorPage';
+import JettyOperatorPage from './pages/JettyOperatorPage';
+import AdminPage from './pages/AdminPage';
+import Spinner from './components/Spinner';
+
+const ROLE_HOME = {
+  pit_operator:   '/pit',
+  jetty_operator: '/jetty',
+  admin:          '/admin',
+};
+
+function RoleRoute({ roles, children }) {
+  const { user, role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner className="h-10 w-10" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (!roles.includes(role)) return <Navigate to={ROLE_HOME[role] ?? '/login'} replace />;
+  return children;
+}
+
+function AuthRedirect() {
+  const { user, role } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={ROLE_HOME[role] ?? '/login'} replace />;
+}
+
+// Inner component so it can call useAuth after provider is mounted
+function AppRoutes() {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    setAuthProvider(getToken);
+  }, [getToken]);
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/pit" element={
+        <RoleRoute roles={['pit_operator', 'admin']}>
+          <PitOperatorPage />
+        </RoleRoute>
+      } />
+      <Route path="/jetty" element={
+        <RoleRoute roles={['jetty_operator', 'admin']}>
+          <JettyOperatorPage />
+        </RoleRoute>
+      } />
+      <Route path="/admin" element={
+        <RoleRoute roles={['admin']}>
+          <AdminPage />
+        </RoleRoute>
+      } />
+      <Route path="*" element={<AuthRedirect />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
