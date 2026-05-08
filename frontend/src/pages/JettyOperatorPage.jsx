@@ -211,6 +211,8 @@ export default function JettyOperatorPage() {
               <InfoRow label="Jetty" value={trip.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'} />
               <InfoRow label="Coal Quality" value={trip.coal_quality === 'raw' ? 'Raw 原煤' : 'Clean 精煤'} />
               <InfoRow label="Gross Weight" value={`${trip.gross_weight_kg?.toLocaleString()} kg`} />
+              <InfoRow label="Pit Tare (Empty)" value={`${trip.pit_tare_weight_kg?.toLocaleString()} kg`} />
+              <InfoRow label="Coal Weight (Pit)" value={`${trip.pit_net_weight_kg?.toLocaleString()} kg`} />
               <InfoRow label="Pit Time (WITA)" value={toWITA(trip.pit_timestamp)} />
             </div>
             <form onSubmit={handleComplete} className="space-y-4">

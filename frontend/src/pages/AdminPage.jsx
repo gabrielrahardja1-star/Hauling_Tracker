@@ -343,7 +343,7 @@ export default function AdminPage() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-700/50 bg-slate-800/40">
-                    {['Truck', 'Jetty', 'Quality', 'Status', 'Gross', 'Tare', 'Net', 'Deviation', 'Weather', 'Pit In', 'Jetty Out'].map((h) => (
+                    {['Truck', 'Jetty', 'Quality', 'Status', 'Gross', 'Pit Tare', 'Pit Net', 'Tare', 'Net', 'Deviation', 'Weather', 'Pit In', 'Jetty Out'].map((h) => (
                       <th key={h} className="text-left text-slate-400 font-medium px-3 py-2.5 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -365,6 +365,14 @@ export default function AdminPage() {
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <EditCell value={t.gross_weight_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_weight_kg', v)} />
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-slate-400">
+                        <EditCell value={t.pit_tare_weight_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'pit_tare_weight_kg', v)} />
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-blue-400">
+                        {t.pit_net_weight_kg != null
+                          ? <EditCell value={t.pit_net_weight_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'pit_net_weight_kg', v)} />
+                          : <span className="text-slate-600">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <EditCell value={t.tare_weight_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_weight_kg', v)} />

@@ -13,12 +13,13 @@ function witaDate() {
 
 // POST /trips — pit operator creates a trip
 router.post('/', requireRole('pit_operator', 'admin'), async (req, res) => {
-  const { truck_id, jetty_destination, coal_quality, weather, gross_weight_kg } = req.body;
+  const { truck_id, jetty_destination, coal_quality, weather, gross_weight_kg, pit_tare_weight_kg } = req.body;
 
-  if (!truck_id || !jetty_destination || !coal_quality || !weather || !gross_weight_kg) {
-    return res.status(400).json({ error: 'All fields are required' });
+  if (!truck_id || !jetty_destination || !coal_quality || !weather || !gross_weight_kg || !pit_tare_weight_kg) {
+    return res.status(400).json({ error: 'All fields are required including pit tare weight' });
   }
 
+  const pit_net_weight_kg = gross_weight_kg - pit_tare_weight_kg;
   const today = witaDate();
 
   const existing = await queryOne(
@@ -30,10 +31,12 @@ router.post('/', requireRole('pit_operator', 'admin'), async (req, res) => {
   }
 
   const [trip] = await query(
-    `insert into trips (date, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg, pit_timestamp, status)
-     values ($1, $2, $3, $4, $5, $6, now(), 'in_progress')
+    `insert into trips (date, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg,
+      pit_tare_weight_kg, pit_net_weight_kg, pit_timestamp, status)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, now(), 'in_progress')
      returning *`,
-    [today, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg]
+    [today, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg,
+     pit_tare_weight_kg, pit_net_weight_kg]
   );
 
   res.status(201).json(trip);
@@ -91,7 +94,7 @@ router.get('/export', requireRole('admin'), async (req, res) => {
   const sheet = workbook.addWorksheet('Trips');
 
   const isTalenta = jetty === 'talenta';
-  const baseColCount = 9;
+  const baseColCount = 11; // +2 for pit tare + pit net
   const totalCols = isTalenta ? baseColCount + 6 : baseColCount;
 
   const toWITA = (ts) => {
@@ -113,14 +116,14 @@ router.get('/export', requireRole('admin'), async (req, res) => {
   sheet.mergeCells(2, 1, 2, totalCols);
 
   // Row 3 — Chinese headers
-  const chHeaders = ['序号', '车号', '进入时间', '离开时间', '总重(MMI)', '皮重(MMI)', '净重(MMI)', '天气(MMI)', '媒质'];
+  const chHeaders = ['序号', '车号', '进入时间', '离开时间', '总重(MMI)', '皮重(Pit)', '净重(Pit)', '皮重(MMI)', '净重(MMI)', '天气(MMI)', '媒质'];
   if (isTalenta) chHeaders.push('总重(Talenta)', 'Compare Gross', '皮重(Talenta)', 'Compare Tare', '净重(Talenta)', 'Deviasi (KG)');
   sheet.addRow(chHeaders);
   sheet.getRow(3).font = { bold: true };
 
   // Row 4 — Indonesian headers
   const idHeaders = ['No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
-    'Gross Site (KG)', 'Tare Site (KG)', 'Netto Site (KG)', 'Cuaca (MMI)', 'Coal quality'];
+    'Gross Site (KG)', 'Tare Pit (KG)', 'Netto Pit (KG)', 'Tare Site (KG)', 'Netto Site (KG)', 'Cuaca (MMI)', 'Coal quality'];
   if (isTalenta) idHeaders.push('Gross Talenta (KG)', 'Selisih Gross', 'Tare Talenta (KG)', 'Selisih Tare', 'Netto Talenta (KG)', 'Deviasi (KG)');
   sheet.addRow(idHeaders);
   sheet.getRow(4).font = { bold: true };
@@ -138,6 +141,8 @@ router.get('/export', requireRole('admin'), async (req, res) => {
       toWITA(t.pit_timestamp),
       toWITA(t.jetty_timestamp),
       t.gross_weight_kg,
+      t.pit_tare_weight_kg,
+      t.pit_net_weight_kg,
       t.tare_weight_kg,
       t.net_weight_kg,
       t.weather,
@@ -162,13 +167,13 @@ router.get('/export', requireRole('admin'), async (req, res) => {
   });
 
   // Totals row
-  const totalsRow = ['', 'TOTAL', '', '', totalGross, totalTare, totalNet, '', ''];
+  const totalsRow = ['', 'TOTAL', '', '', totalGross, '', '', totalTare, totalNet, '', ''];
   if (isTalenta) totalsRow.push('', '', '', '', '', '');
   const lastRow = sheet.addRow(totalsRow);
   lastRow.font = { bold: true };
 
   // Column widths
-  const colWidths = [8, 14, 22, 22, 16, 16, 16, 16, 14];
+  const colWidths = [8, 14, 22, 22, 16, 16, 16, 16, 16, 16, 14];
   if (isTalenta) colWidths.push(18, 16, 18, 16, 18, 14);
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
@@ -240,32 +245,39 @@ router.patch('/:id', requireRole('jetty_operator', 'admin'), async (req, res) =>
 
   // Admin free-form edit — merge and recalculate derived fields
   const merged = { ...trip, ...updates };
-  merged.net_weight_kg = merged.gross_weight_kg - (merged.tare_weight_kg ?? 0);
+  if (merged.pit_tare_weight_kg != null) {
+    merged.pit_net_weight_kg = merged.gross_weight_kg - merged.pit_tare_weight_kg;
+  }
+  if (merged.tare_weight_kg != null) {
+    merged.net_weight_kg = merged.gross_weight_kg - merged.tare_weight_kg;
+  }
   if (merged.jetty_destination === 'talenta' && merged.tare_weight_kg != null && merged.talenta_weight_kg != null) {
     merged.deviation_kg = merged.tare_weight_kg - merged.talenta_weight_kg;
   }
 
   const [updated] = await query(
     `update trips
-     set date              = $1,
-         truck_id          = $2,
-         jetty_destination = $3,
-         coal_quality      = $4,
-         weather           = $5,
-         gross_weight_kg   = $6,
-         tare_weight_kg    = $7,
-         talenta_weight_kg = $8,
-         deviation_kg      = $9,
-         net_weight_kg     = $10,
-         status            = $11,
-         pit_timestamp     = $12,
-         jetty_timestamp   = $13
-     where trip_id = $14
+     set date                = $1,
+         truck_id            = $2,
+         jetty_destination   = $3,
+         coal_quality        = $4,
+         weather             = $5,
+         gross_weight_kg     = $6,
+         pit_tare_weight_kg  = $7,
+         pit_net_weight_kg   = $8,
+         tare_weight_kg      = $9,
+         talenta_weight_kg   = $10,
+         deviation_kg        = $11,
+         net_weight_kg       = $12,
+         status              = $13,
+         pit_timestamp       = $14,
+         jetty_timestamp     = $15
+     where trip_id = $16
      returning *`,
     [
       merged.date, merged.truck_id, merged.jetty_destination, merged.coal_quality,
-      merged.weather, merged.gross_weight_kg, merged.tare_weight_kg,
-      merged.talenta_weight_kg, merged.deviation_kg, merged.net_weight_kg,
+      merged.weather, merged.gross_weight_kg, merged.pit_tare_weight_kg, merged.pit_net_weight_kg,
+      merged.tare_weight_kg, merged.talenta_weight_kg, merged.deviation_kg, merged.net_weight_kg,
       merged.status, merged.pit_timestamp, merged.jetty_timestamp, id,
     ]
   );

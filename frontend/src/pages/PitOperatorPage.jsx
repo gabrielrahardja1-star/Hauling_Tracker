@@ -8,6 +8,7 @@ const INITIAL = {
   jetty_destination: '',
   coal_quality: '',
   weather: '',
+  pit_tare_weight_kg: '',
   gross_weight_kg: '',
 };
 
@@ -30,11 +31,18 @@ export default function PitOperatorPage() {
 
     const payload = {
       ...form,
+      pit_tare_weight_kg: parseInt(form.pit_tare_weight_kg, 10),
       gross_weight_kg: parseInt(form.gross_weight_kg, 10),
     };
 
+    if (!payload.pit_tare_weight_kg || payload.pit_tare_weight_kg <= 0) {
+      return setError('Empty truck weight must be a positive number');
+    }
     if (!payload.gross_weight_kg || payload.gross_weight_kg <= 0) {
-      return setError('Gross weight must be a positive number');
+      return setError('Loaded truck weight must be a positive number');
+    }
+    if (payload.gross_weight_kg <= payload.pit_tare_weight_kg) {
+      return setError('Loaded weight must be greater than empty truck weight');
     }
 
     setLoading(true);
@@ -68,6 +76,9 @@ export default function PitOperatorPage() {
                 <p className="text-sm text-slate-300 mt-0.5">
                   Truck <span className="font-mono font-bold">{success.truck_id}</span> →{' '}
                   {success.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
+                </p>
+                <p className="text-sm text-slate-300">
+                  Coal weight: <span className="font-bold text-emerald-400">{success.pit_net_weight_kg?.toLocaleString()} kg</span>
                 </p>
                 <p className="text-xs text-slate-400 mt-1 font-mono">{success.trip_id}</p>
               </div>
@@ -150,9 +161,24 @@ export default function PitOperatorPage() {
               />
             </div>
 
-            {/* Gross weight */}
+            {/* Empty truck weight (pit tare) */}
             <div>
-              <label className="label">Gross Weight — kg (Total Berat Kotor)</label>
+              <label className="label">Empty Truck Weight — kg (Berat Kosong)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                className="input-field"
+                placeholder="e.g. 18000"
+                value={form.pit_tare_weight_kg}
+                onChange={(e) => set('pit_tare_weight_kg', e.target.value)}
+                min={1}
+                required
+              />
+            </div>
+
+            {/* Loaded truck weight (gross) */}
+            <div>
+              <label className="label">Loaded Truck Weight — kg (Berat Muatan)</label>
               <input
                 type="number"
                 inputMode="numeric"
@@ -165,6 +191,23 @@ export default function PitOperatorPage() {
               />
             </div>
 
+            {/* Coal weight preview */}
+            {form.pit_tare_weight_kg && form.gross_weight_kg && (
+              (() => {
+                const net = parseInt(form.gross_weight_kg, 10) - parseInt(form.pit_tare_weight_kg, 10);
+                return (
+                  <div className="rounded-xl bg-slate-800/60 px-4 py-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Coal Weight (Pit Net)</span>
+                      <span className={`font-semibold ${net <= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {net.toLocaleString()} kg
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+
             {/* Error */}
             {error && (
               <div className="rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">
@@ -175,7 +218,7 @@ export default function PitOperatorPage() {
             <button
               type="submit"
               className="btn-success w-full mt-2"
-              disabled={loading || !form.jetty_destination || !form.coal_quality}
+              disabled={loading || !form.jetty_destination || !form.coal_quality || !form.pit_tare_weight_kg || !form.gross_weight_kg}
             >
               {loading ? <Spinner className="h-5 w-5" /> : (
                 <>
