@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hauling_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: hauling_tracker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hauling_user -d hauling_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgres://hauling_user:${DB_PASSWORD}@db:5432/hauling_tracker
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: http://${SERVER_IP}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

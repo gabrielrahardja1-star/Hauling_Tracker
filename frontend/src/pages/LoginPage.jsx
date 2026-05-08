@@ -50,9 +50,9 @@ export default function LoginPage() {
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Email</label>
-              <input type="email" className="input-field" placeholder="operator@example.com"
-                value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+              <label className="label">Username</label>
+              <input type="text" className="input-field" placeholder="username"
+                value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
             </div>
             <div>
               <label className="label">Password</label>
