@@ -3,6 +3,12 @@ import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import { api } from '../lib/api';
 
+const STATUS_STYLE = {
+  pending:    { badge: 'badge-yellow', label: 'Pending' },
+  in_transit: { badge: 'badge-blue',   label: 'In Transit' },
+  completed:  { badge: 'badge-green',  label: 'Completed' },
+};
+
 const WITA_OPTS = { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false };
 function toWITA(ts) {
   if (!ts) return '—';
@@ -29,8 +35,8 @@ function InfoRow({ label, value, mono }) {
 
 export default function JettyOperatorPage() {
   const [jettyFilter, setJettyFilter] = useState('');
-  const [incoming, setIncoming] = useState([]);
-  const [incomingLoading, setIncomingLoading] = useState(true);
+  const [allTrips, setAllTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
 
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
@@ -43,23 +49,22 @@ export default function JettyOperatorPage() {
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
 
-  const fetchIncoming = useCallback(async () => {
-    setIncomingLoading(true);
+  const fetchTrips = useCallback(async () => {
+    setTripsLoading(true);
     try {
-      const data = await api.getIncomingTrips(jettyFilter);
-      setIncoming(data);
+      setAllTrips(await api.getTodayTrips(jettyFilter));
     } catch { /* silent */ } finally {
-      setIncomingLoading(false);
+      setTripsLoading(false);
     }
   }, [jettyFilter]);
 
   useEffect(() => {
-    fetchIncoming();
-    const interval = setInterval(fetchIncoming, 30000);
+    fetchTrips();
+    const interval = setInterval(fetchTrips, 30000);
     return () => clearInterval(interval);
-  }, [fetchIncoming]);
+  }, [fetchTrips]);
 
-  function selectIncoming(t) {
+  function selectTrip(t) {
     setTrip(t);
     setSearchInput(t.no_lambung);
     setGrossJetty(''); setTareJetty('');
@@ -96,7 +101,7 @@ export default function JettyOperatorPage() {
       const updated = await api.submitCP3(trip.trip_id, { gross_jetty_kg: grossKg, tare_jetty_kg: tareKg });
       setSuccess(updated);
       setTrip(null);
-      fetchIncoming();
+      fetchTrips();
     } catch (err) {
       setSubmitError(err.message);
     } finally {
@@ -110,16 +115,22 @@ export default function JettyOperatorPage() {
     setGrossJetty(''); setTareJetty(''); setSubmitError('');
   }
 
-  const g = parseInt(grossJetty, 10) || 0;
-  const tr = parseInt(tareJetty, 10) || 0;
+  const g  = parseInt(grossJetty, 10) || 0;
+  const tr = parseInt(tareJetty,  10) || 0;
   const preview = trip && g && tr ? {
     netto_jetty:   g - tr,
-    compare_gross: g   - (trip.gross_site_kg || 0),
-    compare_tare:  tr  - trip.tare_site_kg,
+    compare_gross: g  - (trip.gross_site_kg || 0),
+    compare_tare:  tr - trip.tare_site_kg,
     deviasi:       (g - tr) - (trip.netto_site_kg || 0),
   } : null;
 
   const jettyLabel = trip?.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta';
+
+  // Filtered list for display
+  const displayTrips = jettyFilter
+    ? allTrips.filter((t) => t.jetty_destination === jettyFilter)
+    : allTrips;
+  const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
 
   return (
     <Layout title="Jetty — CP3">
@@ -198,14 +209,13 @@ export default function JettyOperatorPage() {
                 <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 18000"
                   value={tareJetty} onChange={(e) => { setTareJetty(e.target.value); setSubmitError(''); }} min={1} required />
               </div>
-
               {preview && (
                 <div className="rounded-xl bg-slate-800/60 px-4 py-3 space-y-2">
                   {[
-                    { label: 'Netto Jetty',    value: preview.netto_jetty,   color: preview.netto_jetty > 0 ? 'text-emerald-400' : 'text-red-400' },
-                    { label: 'Compare Gross',  value: preview.compare_gross, color: 'text-slate-300' },
-                    { label: 'Compare Tare',   value: preview.compare_tare,  color: 'text-slate-300' },
-                    { label: 'Deviasi',        value: preview.deviasi,       color: preview.deviasi < 0 ? 'text-red-400' : 'text-blue-400' },
+                    { label: 'Netto Jetty',   value: preview.netto_jetty,   color: preview.netto_jetty > 0 ? 'text-emerald-400' : 'text-red-400' },
+                    { label: 'Compare Gross', value: preview.compare_gross, color: 'text-slate-300' },
+                    { label: 'Compare Tare',  value: preview.compare_tare,  color: 'text-slate-300' },
+                    { label: 'Deviasi',       value: preview.deviasi,       color: preview.deviasi < 0 ? 'text-red-400' : 'text-blue-400' },
                   ].map((row) => (
                     <div key={row.label} className="flex justify-between text-sm">
                       <span className="text-slate-400">{row.label}</span>
@@ -214,7 +224,6 @@ export default function JettyOperatorPage() {
                   ))}
                 </div>
               )}
-
               {submitError && (
                 <div className="rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">{submitError}</div>
               )}
@@ -228,13 +237,15 @@ export default function JettyOperatorPage() {
           </div>
         )}
 
-        {/* Incoming trucks list */}
+        {/* All today's trips */}
         {!trip && !success && (
           <div className="card p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-slate-200">In Transit</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Refreshes every 30s</p>
+                <h2 className="text-base font-semibold text-slate-200">Today's Trips</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {displayTrips.length} trucks · {inTransitCount} in transit · refreshes every 30s
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <select
@@ -244,7 +255,7 @@ export default function JettyOperatorPage() {
                   <option value="hasnur">Hasnur</option>
                   <option value="talenta">Talenta</option>
                 </select>
-                <button onClick={fetchIncoming} className="text-slate-400 hover:text-white transition-colors p-1" title="Refresh">
+                <button onClick={fetchTrips} className="text-slate-400 hover:text-white transition-colors p-1" title="Refresh">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -253,33 +264,60 @@ export default function JettyOperatorPage() {
               </div>
             </div>
 
-            {incomingLoading ? (
+            {tripsLoading ? (
               <div className="flex justify-center py-8"><Spinner /></div>
-            ) : incoming.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-sm">No trucks in transit</div>
+            ) : displayTrips.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">No trips today yet</div>
             ) : (
               <div className="divide-y divide-slate-800/60">
-                {incoming.map((t) => (
-                  <button key={t.trip_id} onClick={() => selectIncoming(t)}
-                    className="w-full text-left px-4 py-3.5 hover:bg-slate-800/40 transition-colors active:bg-slate-700/40">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 font-mono">#{t.no_tiket}</span>
-                        <span className="font-mono font-bold text-slate-100">{t.no_lambung}</span>
+                {displayTrips.map((t) => {
+                  const s = STATUS_STYLE[t.status] ?? { badge: 'badge-gray', label: t.status };
+                  const canSelect = t.status === 'in_transit';
+                  return canSelect ? (
+                    <button key={t.trip_id} onClick={() => selectTrip(t)}
+                      className="w-full text-left px-4 py-3.5 hover:bg-slate-800/40 transition-colors active:bg-slate-700/40">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 font-mono">#{t.no_tiket}</span>
+                          <span className="font-mono font-bold text-slate-100">{t.no_lambung}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
+                            {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
+                          </span>
+                          <span className={`badge ${s.badge}`}>{s.label}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
-                          {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-xs text-slate-400">{t.netto_site_kg?.toLocaleString()} kg netto · tap to record CP3 →</span>
+                        <span className="text-xs text-slate-500">{elapsed(t.cp2_timestamp)}</span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div key={t.trip_id} className="px-4 py-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 font-mono">#{t.no_tiket}</span>
+                          <span className="font-mono font-bold text-slate-100">{t.no_lambung}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
+                            {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
+                          </span>
+                          <span className={`badge ${s.badge}`}>{s.label}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-xs text-slate-400">
+                          {t.status === 'pending'
+                            ? `Tare ${t.tare_site_kg?.toLocaleString()} kg`
+                            : `Netto site ${t.netto_site_kg?.toLocaleString()} kg · Netto jetty ${t.netto_jetty_kg?.toLocaleString()} kg`}
                         </span>
-                        <span className="badge badge-gray">{t.coal_quality === 'raw' ? 'Raw' : 'Clean'}</span>
+                        <span className="text-xs text-slate-500">{toWITA(t.cp1_timestamp)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-xs text-slate-400">{t.netto_site_kg?.toLocaleString()} kg netto site</span>
-                      <span className="text-xs text-slate-500">{elapsed(t.cp2_timestamp)}</span>
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

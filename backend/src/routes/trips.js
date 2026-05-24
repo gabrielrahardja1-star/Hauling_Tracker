@@ -108,6 +108,26 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res
   res.json(updated);
 });
 
+// GET /trips/today?jetty= — all trips today (all roles)
+router.get('/today', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
+  const { jetty } = req.query;
+  const today = witaDate();
+
+  const conditions = [`date = $1`];
+  const values = [today];
+
+  if (jetty) {
+    conditions.push(`jetty_destination = $2`);
+    values.push(jetty);
+  }
+
+  const trips = await query(
+    `select * from trips where ${conditions.join(' and ')} order by no_tiket asc`,
+    values
+  );
+  res.json(trips);
+});
+
 // GET /trips/search?no_lambung=&status= — find today's trip by truck ID
 router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
   const { no_lambung, status } = req.query;

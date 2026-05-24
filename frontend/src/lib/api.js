@@ -40,6 +40,10 @@ export const api = {
     return request('GET', `/trips/search?${params}`);
   },
 
+  // All trips today (stockpile + jetty operators)
+  getTodayTrips: (jetty) =>
+    request('GET', `/trips/today${jetty ? `?jetty=${jetty}` : ''}`),
+
   // Jetty operator: all in_transit trips today
   getIncomingTrips: (jetty) =>
     request('GET', `/trips/incoming${jetty ? `?jetty=${jetty}` : ''}`),
