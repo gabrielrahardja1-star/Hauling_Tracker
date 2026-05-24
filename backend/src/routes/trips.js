@@ -6,48 +6,134 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 
-// Date in WITA (UTC+8) — so "today" is correct for operators on-site
 function witaDate() {
   return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
 
-// POST /trips — pit operator creates a trip
+// POST /trips — CP1: stockpile operator records truck arrival
 router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) => {
-  const { truck_id, jetty_destination, coal_quality, weather, gross_weight_kg, pit_tare_weight_kg } = req.body;
+  const { no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg } = req.body;
 
-  if (!truck_id || !jetty_destination || !coal_quality || !weather || !gross_weight_kg || !pit_tare_weight_kg) {
-    return res.status(400).json({ error: 'All fields are required including pit tare weight' });
+  if (!no_lambung || !jetty_destination || !coal_quality || !cuaca_mmi || !tare_site_kg) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  if (tare_site_kg <= 0) {
+    return res.status(400).json({ error: 'tare_site_kg must be positive' });
   }
 
-  const pit_net_weight_kg = gross_weight_kg - pit_tare_weight_kg;
   const today = witaDate();
+  const lambung = no_lambung.trim().toUpperCase();
 
   const existing = await queryOne(
-    'select trip_id from trips where truck_id = $1 and date = $2',
-    [truck_id, today]
+    'select trip_id from trips where date = $1 and no_lambung = $2',
+    [today, lambung]
   );
   if (existing) {
-    return res.status(409).json({ error: `Truck ${truck_id} already has a trip today` });
+    return res.status(409).json({ error: `Truck ${lambung} already has a trip today` });
   }
 
   const [trip] = await query(
-    `insert into trips (date, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg,
-      pit_tare_weight_kg, pit_net_weight_kg, pit_timestamp, status)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, now(), 'in_progress')
+    `with next_ticket as (
+       select coalesce(max(no_tiket), 0) + 1 as no_tiket from trips where date = $1
+     )
+     insert into trips (date, no_tiket, no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, cp1_timestamp, status)
+     select $1, no_tiket, $2, $3, $4, $5, $6, now(), 'pending'
+     from next_ticket
      returning *`,
-    [today, truck_id, jetty_destination, coal_quality, weather, gross_weight_kg,
-     pit_tare_weight_kg, pit_net_weight_kg]
+    [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg]
   );
 
   res.status(201).json(trip);
 });
 
-// GET /trips/incoming?jetty= — jetty operator sees all in-progress trips today
+// PATCH /trips/:id/cp2 — stockpile operator records truck departure
+router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { gross_site_kg } = req.body;
+
+  if (!gross_site_kg || gross_site_kg <= 0) {
+    return res.status(400).json({ error: 'gross_site_kg is required and must be positive' });
+  }
+
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.status !== 'pending') return res.status(409).json({ error: 'Trip is not in pending status' });
+
+  const netto_site_kg = gross_site_kg - trip.tare_site_kg;
+
+  const [updated] = await query(
+    `update trips
+     set gross_site_kg = $1, netto_site_kg = $2, cp2_timestamp = now(), status = 'in_transit'
+     where trip_id = $3
+     returning *`,
+    [gross_site_kg, netto_site_kg, id]
+  );
+
+  res.json(updated);
+});
+
+// PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
+router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { gross_jetty_kg, tare_jetty_kg } = req.body;
+
+  if (!gross_jetty_kg || !tare_jetty_kg) {
+    return res.status(400).json({ error: 'gross_jetty_kg and tare_jetty_kg are required' });
+  }
+
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
+
+  const netto_jetty_kg   = gross_jetty_kg - tare_jetty_kg;
+  const compare_gross_kg = gross_jetty_kg - trip.gross_site_kg;
+  const compare_tare_kg  = tare_jetty_kg  - trip.tare_site_kg;
+  const deviasi_kg       = netto_jetty_kg - trip.netto_site_kg;
+
+  const [updated] = await query(
+    `update trips
+     set gross_jetty_kg   = $1,
+         tare_jetty_kg    = $2,
+         netto_jetty_kg   = $3,
+         compare_gross_kg = $4,
+         compare_tare_kg  = $5,
+         deviasi_kg       = $6,
+         cp3_timestamp    = now(),
+         status           = 'completed'
+     where trip_id = $7
+     returning *`,
+    [gross_jetty_kg, tare_jetty_kg, netto_jetty_kg, compare_gross_kg, compare_tare_kg, deviasi_kg, id]
+  );
+
+  res.json(updated);
+});
+
+// GET /trips/search?no_lambung=&status= — find today's trip by truck ID
+router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
+  const { no_lambung, status } = req.query;
+  if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
+
+  const today = witaDate();
+  const values = [today, no_lambung.trim().toUpperCase()];
+  let sql = 'select * from trips where date = $1 and no_lambung = $2';
+
+  if (status) {
+    sql += ' and status = $3';
+    values.push(status);
+  }
+
+  const trip = await queryOne(sql, values);
+  if (!trip) return res.status(404).json({ error: 'No matching trip found for this truck today' });
+
+  res.json(trip);
+});
+
+// GET /trips/incoming?jetty= — jetty operator: all in_transit trips today
 router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res) => {
   const { jetty } = req.query;
   const today = witaDate();
 
-  const conditions = [`date = $1`, `status = 'in_progress'`];
+  const conditions = [`date = $1`, `status = 'in_transit'`];
   const values = [today];
 
   if (jetty) {
@@ -56,26 +142,11 @@ router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res)
   }
 
   const trips = await query(
-    `select * from trips where ${conditions.join(' and ')} order by pit_timestamp asc`,
+    `select * from trips where ${conditions.join(' and ')} order by cp2_timestamp asc`,
     values
   );
+
   res.json(trips);
-});
-
-// GET /trips/active?truck_id= — jetty operator fetches today's in_progress trip
-router.get('/active', requireRole('jetty_operator', 'admin'), async (req, res) => {
-  const { truck_id } = req.query;
-  if (!truck_id) return res.status(400).json({ error: 'truck_id is required' });
-
-  const today = witaDate();
-  const trip = await queryOne(
-    `select * from trips
-     where truck_id = $1 and date = $2 and status = 'in_progress'`,
-    [truck_id, today]
-  );
-
-  if (!trip) return res.status(404).json({ error: 'No active trip found for this truck today' });
-  res.json(trip);
 });
 
 // GET /trips/export?date=&jetty= — admin Excel export
@@ -86,95 +157,105 @@ router.get('/export', requireRole('admin'), async (req, res) => {
   const trips = await query(
     `select * from trips
      where date = $1 and jetty_destination = $2 and status = 'completed'
-     order by pit_timestamp asc`,
+     order by no_tiket asc`,
     [date, jetty]
   );
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Trips');
 
-  const isTalenta = jetty === 'talenta';
-  const baseColCount = 11; // +2 for pit tare + pit net
-  const totalCols = isTalenta ? baseColCount + 6 : baseColCount;
+  const TOTAL_COLS = 15;
+  const jettyLabel = jetty === 'hasnur' ? 'HBM' : 'Talenta';
 
-  const toWITA = (ts) => {
+  const toHHMM = (ts) => {
     if (!ts) return '';
     const wita = new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000);
-    return wita.toISOString().replace('T', ' ').slice(0, 19);
+    return wita.toISOString().slice(11, 16);
   };
 
   const [year, month, day] = date.split('-');
 
   // Row 1 — title
   sheet.addRow([`${year}年${month}月${day}日运煤明细`]);
-  sheet.mergeCells(1, 1, 1, totalCols);
+  sheet.mergeCells(1, 1, 1, TOTAL_COLS);
   sheet.getRow(1).getCell(1).alignment = { horizontal: 'center' };
   sheet.getRow(1).font = { bold: true, size: 14 };
 
   // Row 2 — date
-  sheet.addRow([date]);
-  sheet.mergeCells(2, 1, 2, totalCols);
+  const dateCell = sheet.addRow([new Date(date)]);
+  sheet.mergeCells(2, 1, 2, TOTAL_COLS);
+  sheet.getRow(2).getCell(1).numFmt = 'yyyy-mm-dd';
 
   // Row 3 — Chinese headers
-  const chHeaders = ['序号', '车号', '进入时间', '离开时间', '总重(MMI)', '皮重(Pit)', '净重(Pit)', '皮重(MMI)', '净重(MMI)', '天气(MMI)', '媒质'];
-  if (isTalenta) chHeaders.push('总重(Talenta)', 'Compare Gross', '皮重(Talenta)', 'Compare Tare', '净重(Talenta)', 'Deviasi (KG)');
-  sheet.addRow(chHeaders);
+  sheet.addRow([
+    '序号', '车号', '进入时间', '离开时间',
+    '总重(MMI)', `总重(${jettyLabel})`, '相差',
+    '皮重(MMI)', `皮重(${jettyLabel})`, '相差',
+    '净重(MMI)', `净重(${jettyLabel})`, '相差',
+    '天气(MMI)', '媒质',
+  ]);
   sheet.getRow(3).font = { bold: true };
 
   // Row 4 — Indonesian headers
-  const idHeaders = ['No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
-    'Gross Site (KG)', 'Tare Pit (KG)', 'Netto Pit (KG)', 'Tare Site (KG)', 'Netto Site (KG)', 'Cuaca (MMI)', 'Coal quality'];
-  if (isTalenta) idHeaders.push('Gross Talenta (KG)', 'Selisih Gross', 'Tare Talenta (KG)', 'Selisih Tare', 'Netto Talenta (KG)', 'Deviasi (KG)');
-  sheet.addRow(idHeaders);
+  sheet.addRow([
+    'No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
+    'Gross Site (KG)', `Gross ${jettyLabel} (KG)`, 'Compare Gross',
+    'Tare Site (KG)', `Tare ${jettyLabel} (KG)`, 'Compare Tare',
+    'Netto Site (KG)', `Netto ${jettyLabel} (KG)`, 'Deviasi (KG)',
+    'Cuaca (MMI)', 'Coal quality',
+  ]);
   sheet.getRow(4).font = { bold: true };
 
-  // Data rows
-  let totalGross = 0, totalTare = 0, totalNet = 0;
-  trips.forEach((t, i) => {
-    totalGross += t.gross_weight_kg || 0;
-    totalTare  += t.tare_weight_kg  || 0;
-    totalNet   += t.net_weight_kg   || 0;
+  // Freeze header rows
+  sheet.views = [{ state: 'frozen', ySplit: 4 }];
 
-    const row = [
-      i + 1,
-      t.truck_id,
-      toWITA(t.pit_timestamp),
-      toWITA(t.jetty_timestamp),
-      t.gross_weight_kg,
-      t.pit_tare_weight_kg,
-      t.pit_net_weight_kg,
-      t.tare_weight_kg,
-      t.net_weight_kg,
-      t.weather,
-      t.coal_quality,
-    ];
+  // Data rows + running totals
+  let sumGrossSite = 0, sumGrossJetty = 0, sumCompareGross = 0;
+  let sumTareSite = 0, sumTareJetty = 0, sumCompareTare = 0;
+  let sumNettoSite = 0, sumNettoJetty = 0, sumDeviasi = 0;
 
-    if (isTalenta) {
-      const compareGross = t.talenta_weight_kg != null ? t.gross_weight_kg - t.talenta_weight_kg : '';
-      const talentaNet   = t.talenta_weight_kg != null && t.tare_weight_kg != null
-        ? t.talenta_weight_kg - t.tare_weight_kg : '';
-      row.push(
-        t.talenta_weight_kg ?? '',
-        compareGross,
-        t.talenta_weight_kg ?? '',
-        t.deviation_kg ?? '',
-        talentaNet,
-        t.deviation_kg ?? ''
-      );
-    }
+  trips.forEach((t) => {
+    sumGrossSite    += t.gross_site_kg    || 0;
+    sumGrossJetty   += t.gross_jetty_kg   || 0;
+    sumCompareGross += t.compare_gross_kg || 0;
+    sumTareSite     += t.tare_site_kg     || 0;
+    sumTareJetty    += t.tare_jetty_kg    || 0;
+    sumCompareTare  += t.compare_tare_kg  || 0;
+    sumNettoSite    += t.netto_site_kg    || 0;
+    sumNettoJetty   += t.netto_jetty_kg   || 0;
+    sumDeviasi      += t.deviasi_kg       || 0;
 
-    sheet.addRow(row);
+    sheet.addRow([
+      t.no_tiket,
+      t.no_lambung,
+      toHHMM(t.cp1_timestamp),
+      toHHMM(t.cp2_timestamp),
+      t.gross_site_kg,
+      t.gross_jetty_kg,
+      t.compare_gross_kg,
+      t.tare_site_kg,
+      t.tare_jetty_kg,
+      t.compare_tare_kg,
+      t.netto_site_kg,
+      t.netto_jetty_kg,
+      t.deviasi_kg,
+      t.cuaca_mmi,
+      t.coal_quality === 'raw' ? '原煤' : '精煤',
+    ]);
   });
 
   // Totals row
-  const totalsRow = ['', 'TOTAL', '', '', totalGross, '', '', totalTare, totalNet, '', ''];
-  if (isTalenta) totalsRow.push('', '', '', '', '', '');
-  const lastRow = sheet.addRow(totalsRow);
-  lastRow.font = { bold: true };
+  const totalsRow = sheet.addRow([
+    '', '总计 / TOTAL', '', '',
+    sumGrossSite, sumGrossJetty, sumCompareGross,
+    sumTareSite, sumTareJetty, sumCompareTare,
+    sumNettoSite, sumNettoJetty, sumDeviasi,
+    '', '',
+  ]);
+  totalsRow.font = { bold: true };
 
   // Column widths
-  const colWidths = [8, 14, 22, 22, 16, 16, 16, 16, 16, 16, 14];
-  if (isTalenta) colWidths.push(18, 16, 18, 16, 18, 14);
+  const colWidths = [10, 16, 18, 18, 16, 16, 14, 14, 14, 14, 14, 14, 14, 16, 12];
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -183,7 +264,7 @@ router.get('/export', requireRole('admin'), async (req, res) => {
   res.end();
 });
 
-// GET /trips?date=&jetty=&status= — admin list with filters
+// GET /trips — admin list with filters
 router.get('/', requireRole('admin'), async (req, res) => {
   const { date, jetty, status } = req.query;
 
@@ -197,90 +278,65 @@ router.get('/', requireRole('admin'), async (req, res) => {
 
   const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
   const trips = await query(
-    `select * from trips ${where} order by pit_timestamp desc`,
+    `select * from trips ${where} order by date desc, no_tiket asc`,
     values
   );
   res.json(trips);
 });
 
-// PATCH /trips/:id — complete trip (jetty) or admin edit
-router.patch('/:id', requireRole('jetty_operator', 'admin'), async (req, res) => {
+// PATCH /trips/:id — admin free-form edit, recalculates derived fields
+router.patch('/:id', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const { role } = req.user;
   const updates = req.body;
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-  if (role === 'jetty_operator') {
-    const { tare_weight_kg, talenta_weight_kg } = updates;
+  const m = { ...trip, ...updates };
 
-    if (tare_weight_kg == null) {
-      return res.status(400).json({ error: 'tare_weight_kg is required' });
-    }
-    if (trip.jetty_destination === 'talenta' && talenta_weight_kg == null) {
-      return res.status(400).json({ error: 'talenta_weight_kg is required for Talenta destination' });
-    }
-
-    const net_weight_kg = trip.gross_weight_kg - tare_weight_kg;
-    const deviation_kg  = trip.jetty_destination === 'talenta'
-      ? tare_weight_kg - talenta_weight_kg : null;
-
-    const [updated] = await query(
-      `update trips
-       set tare_weight_kg    = $1,
-           net_weight_kg     = $2,
-           talenta_weight_kg = $3,
-           deviation_kg      = $4,
-           jetty_timestamp   = now(),
-           status            = 'completed'
-       where trip_id = $5
-       returning *`,
-      [tare_weight_kg, net_weight_kg,
-       trip.jetty_destination === 'talenta' ? talenta_weight_kg : null,
-       deviation_kg, id]
-    );
-    return res.json(updated);
+  if (m.gross_site_kg != null && m.tare_site_kg != null) {
+    m.netto_site_kg = m.gross_site_kg - m.tare_site_kg;
   }
-
-  // Admin free-form edit — merge and recalculate derived fields
-  const merged = { ...trip, ...updates };
-  if (merged.pit_tare_weight_kg != null) {
-    merged.pit_net_weight_kg = merged.gross_weight_kg - merged.pit_tare_weight_kg;
-  }
-  if (merged.tare_weight_kg != null) {
-    merged.net_weight_kg = merged.gross_weight_kg - merged.tare_weight_kg;
-  }
-  if (merged.jetty_destination === 'talenta' && merged.tare_weight_kg != null && merged.talenta_weight_kg != null) {
-    merged.deviation_kg = merged.tare_weight_kg - merged.talenta_weight_kg;
+  if (m.gross_jetty_kg != null && m.tare_jetty_kg != null) {
+    m.netto_jetty_kg   = m.gross_jetty_kg - m.tare_jetty_kg;
+    m.compare_gross_kg = m.gross_jetty_kg - (m.gross_site_kg || 0);
+    m.compare_tare_kg  = m.tare_jetty_kg  - m.tare_site_kg;
+    m.deviasi_kg       = m.netto_jetty_kg - (m.netto_site_kg || 0);
   }
 
   const [updated] = await query(
-    `update trips
-     set date                = $1,
-         truck_id            = $2,
-         jetty_destination   = $3,
-         coal_quality        = $4,
-         weather             = $5,
-         gross_weight_kg     = $6,
-         pit_tare_weight_kg  = $7,
-         pit_net_weight_kg   = $8,
-         tare_weight_kg      = $9,
-         talenta_weight_kg   = $10,
-         deviation_kg        = $11,
-         net_weight_kg       = $12,
-         status              = $13,
-         pit_timestamp       = $14,
-         jetty_timestamp     = $15
-     where trip_id = $16
+    `update trips set
+       date             = $1,
+       status           = $2,
+       no_tiket         = $3,
+       no_lambung       = $4,
+       jetty_destination = $5,
+       coal_quality     = $6,
+       cuaca_mmi        = $7,
+       tare_site_kg     = $8,
+       cp1_timestamp    = $9,
+       gross_site_kg    = $10,
+       netto_site_kg    = $11,
+       cp2_timestamp    = $12,
+       gross_jetty_kg   = $13,
+       tare_jetty_kg    = $14,
+       netto_jetty_kg   = $15,
+       compare_gross_kg = $16,
+       compare_tare_kg  = $17,
+       deviasi_kg       = $18,
+       cp3_timestamp    = $19
+     where trip_id = $20
      returning *`,
     [
-      merged.date, merged.truck_id, merged.jetty_destination, merged.coal_quality,
-      merged.weather, merged.gross_weight_kg, merged.pit_tare_weight_kg, merged.pit_net_weight_kg,
-      merged.tare_weight_kg, merged.talenta_weight_kg, merged.deviation_kg, merged.net_weight_kg,
-      merged.status, merged.pit_timestamp, merged.jetty_timestamp, id,
+      m.date, m.status, m.no_tiket, m.no_lambung,
+      m.jetty_destination, m.coal_quality, m.cuaca_mmi, m.tare_site_kg,
+      m.cp1_timestamp, m.gross_site_kg, m.netto_site_kg, m.cp2_timestamp,
+      m.gross_jetty_kg, m.tare_jetty_kg, m.netto_jetty_kg,
+      m.compare_gross_kg, m.compare_tare_kg, m.deviasi_kg, m.cp3_timestamp,
+      id,
     ]
   );
+
   res.json(updated);
 });
 

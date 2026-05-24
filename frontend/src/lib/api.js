@@ -1,6 +1,3 @@
-// All calls go through here. Token is read from localStorage via getToken().
-// getToken() is injected at app startup via setAuthProvider().
-
 let _getToken = () => localStorage.getItem('ht_token');
 
 export function setAuthProvider(getToken) {
@@ -27,17 +24,36 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  // Trips
-  createTrip:    (data)        => request('POST',  '/trips', data),
-  getIncomingTrips: (jetty)    => request('GET',   `/trips/incoming${jetty ? `?jetty=${jetty}` : ''}`),
-  getActiveTrip: (truck_id)    => request('GET',   `/trips/active?truck_id=${encodeURIComponent(truck_id)}`),
-  completeTrip:  (id, data)    => request('PATCH', `/trips/${id}`, data),
-  listTrips:     (params = {}) => {
+  // Trips — CP1
+  createTrip: (data) => request('POST', '/trips', data),
+
+  // Trips — CP2
+  submitCP2: (id, data) => request('PATCH', `/trips/${id}/cp2`, data),
+
+  // Trips — CP3
+  submitCP3: (id, data) => request('PATCH', `/trips/${id}/cp3`, data),
+
+  // Search today's trip by truck ID (optionally filter by status)
+  searchTrip: (no_lambung, status) => {
+    const params = new URLSearchParams({ no_lambung });
+    if (status) params.set('status', status);
+    return request('GET', `/trips/search?${params}`);
+  },
+
+  // Jetty operator: all in_transit trips today
+  getIncomingTrips: (jetty) =>
+    request('GET', `/trips/incoming${jetty ? `?jetty=${jetty}` : ''}`),
+
+  // Admin: list trips with filters
+  listTrips: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/trips${q ? `?${q}` : ''}`);
   },
+
+  // Admin: free-form edit
   updateTrip: (id, data) => request('PATCH', `/trips/${id}`, data),
 
+  // Admin: Excel export
   async exportTrips(date, jetty) {
     const token = _getToken();
     const headers = {};
@@ -51,8 +67,8 @@ export const api = {
   },
 
   // Auth / users
-  createUser: (data) => request('POST',   '/auth/users', data),
-  listUsers:  ()     => request('GET',    '/auth/users'),
-  updateUser: (id, data) => request('PATCH', `/auth/users/${id}`, data),
-  deleteUser: (id)   => request('DELETE', `/auth/users/${id}`),
+  createUser: (data)     => request('POST',   '/auth/users', data),
+  listUsers:  ()         => request('GET',    '/auth/users'),
+  updateUser: (id, data) => request('PATCH',  `/auth/users/${id}`, data),
+  deleteUser: (id)       => request('DELETE', `/auth/users/${id}`),
 };

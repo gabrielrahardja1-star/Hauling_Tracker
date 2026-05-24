@@ -1,22 +1,11 @@
--- Enable UUID extension
-create extension if not exists "pgcrypto";
+-- Rebuild trips table for 3-checkpoint workflow (CP1 → CP2 → CP3).
+-- User accounts are preserved. All existing trip data will be dropped.
 
--- Enums
-create type jetty_destination_enum as enum ('hasnur', 'talenta');
-create type coal_quality_enum      as enum ('raw', 'clean');
-create type trip_status_enum       as enum ('pending', 'in_transit', 'completed');
-create type user_role_enum         as enum ('stockpile_operator', 'jetty_operator', 'admin');
+drop table if exists trips;
+drop type  if exists trip_status_enum;
 
--- Users table
-create table users (
-  user_id       uuid primary key default gen_random_uuid(),
-  email         text not null unique,
-  password_hash text not null,
-  role          user_role_enum not null,
-  created_at    timestamptz not null default now()
-);
+create type trip_status_enum as enum ('pending', 'in_transit', 'completed');
 
--- Trips table — 3-checkpoint workflow (CP1 → CP2 → CP3)
 create table trips (
   trip_id             uuid primary key default gen_random_uuid(),
   date                date not null,
