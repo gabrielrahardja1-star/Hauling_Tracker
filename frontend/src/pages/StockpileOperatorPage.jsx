@@ -85,7 +85,7 @@ function TodayList({ trips, loading, onRefresh, onSelectPending }) {
                   <span className="text-xs text-slate-500">{toWITA(t.cp1_timestamp)}</span>
                 </div>
                 {isPending && onSelectPending && (
-                  <p className="text-xs text-blue-400 mt-1">Tap to record CP2 →</p>
+                  <p className="text-xs text-blue-400 mt-1">Tap to record Jam Keluar →</p>
                 )}
               </El>
             );
@@ -138,14 +138,14 @@ function CP1Form({ onSuccess }) {
     <div className="card">
       {success && (
         <div className="mb-4 rounded-xl bg-emerald-900/20 border border-emerald-700/50 px-4 py-3">
-          <p className="font-semibold text-emerald-300 text-sm">CP1 recorded — Ticket #{success.no_tiket}</p>
+          <p className="font-semibold text-emerald-300 text-sm">Jam Masuk recorded — Ticket #{success.no_tiket}</p>
           <p className="text-xs text-slate-400 mt-0.5">
             {success.no_lambung} · Tare {success.tare_site_kg?.toLocaleString()} kg
           </p>
         </div>
       )}
 
-      <h2 className="text-base font-semibold text-slate-200 mb-5">CP1 — Truck Arrival</h2>
+      <h2 className="text-base font-semibold text-slate-200 mb-5">Jam Masuk — Truck Arrival</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
 
         <div>
@@ -210,7 +210,7 @@ function CP1Form({ onSuccess }) {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Record CP1 — Truck Arrived
+              Jam Masuk — Truck Arrived
             </>
           )}
         </button>
@@ -290,7 +290,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-emerald-300">CP2 recorded — truck departed!</p>
+              <p className="font-semibold text-emerald-300">Jam Keluar recorded — truck departed!</p>
               <p className="text-sm text-slate-300 mt-1">
                 {success.no_lambung} · Netto <span className="font-bold text-emerald-400">{success.netto_site_kg?.toLocaleString()} kg</span>
               </p>
@@ -303,7 +303,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
       {/* Search */}
       {!success && (
         <div className="card">
-          <h2 className="text-base font-semibold text-slate-200 mb-4">CP2 — Truck Departure</h2>
+          <h2 className="text-base font-semibold text-slate-200 mb-4">Jam Keluar — Truck Departure</h2>
           <form onSubmit={handleSearch} className="flex gap-3">
             <input type="text" className="input-field flex-1 uppercase" placeholder="Enter Truck ID..."
               value={searchInput}
@@ -335,7 +335,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             <InfoRow label="Jetty" value={trip.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'} />
             <InfoRow label="Coal Quality" value={trip.coal_quality === 'raw' ? 'Raw 原煤' : 'Clean 精煤'} />
             <InfoRow label="Tare (Site)" value={`${trip.tare_site_kg?.toLocaleString()} kg`} />
-            <InfoRow label="CP1 Time (WITA)" value={toWITA(trip.cp1_timestamp)} />
+            <InfoRow label="Jam Masuk (WITA)" value={toWITA(trip.cp1_timestamp)} />
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -359,7 +359,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={reset} className="btn-secondary flex-1">Cancel</button>
               <button type="submit" className="btn-success flex-1" disabled={submitting}>
-                {submitting ? <Spinner className="h-5 w-5" /> : 'Record CP2 — Departed'}
+                {submitting ? <Spinner className="h-5 w-5" /> : 'Jam Keluar — Departed'}
               </button>
             </div>
           </form>
@@ -404,13 +404,13 @@ export default function StockpileOperatorPage() {
   const pendingTrips = trips.filter((t) => t.status === 'pending');
 
   return (
-    <Layout title={tab === 'cp1' ? 'Stockpile — CP1' : 'Stockpile — CP2'}>
+    <Layout title={tab === 'cp1' ? 'Jam Masuk' : tab === 'cp2' ? 'Jam Keluar' : 'Export'}>
       <div className="space-y-4">
         {/* Tab switcher */}
         <div className="grid grid-cols-3 gap-2 bg-slate-900 rounded-xl p-1">
           {[
-            { key: 'cp1', label: 'CP1' },
-            { key: 'cp2', label: `CP2${pendingTrips.length ? ` (${pendingTrips.length})` : ''}` },
+            { key: 'cp1', label: 'Jam Masuk' },
+            { key: 'cp2', label: `Jam Keluar${pendingTrips.length ? ` (${pendingTrips.length})` : ''}` },
             { key: 'export', label: 'Export' },
           ].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}

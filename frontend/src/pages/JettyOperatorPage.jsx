@@ -135,13 +135,13 @@ export default function JettyOperatorPage() {
   const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
 
   return (
-    <Layout title={tab === 'cp3' ? 'Jetty — CP3' : 'Jetty — Export'}>
+    <Layout title={tab === 'cp3' ? 'Jam Masuk Jetty' : 'Export'}>
       <div className="space-y-5">
 
         {/* Tab switcher */}
         <div className="grid grid-cols-2 gap-2 bg-slate-900 rounded-xl p-1">
           {[
-            { key: 'cp3', label: `CP3${inTransitCount ? ` (${inTransitCount})` : ''}` },
+            { key: 'cp3', label: `Jam Masuk Jetty${inTransitCount ? ` (${inTransitCount})` : ''}` },
             { key: 'export', label: 'Export' },
           ].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -166,7 +166,7 @@ export default function JettyOperatorPage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-emerald-300">CP3 recorded — trip completed!</p>
+                <p className="font-semibold text-emerald-300">Jam Masuk Jetty recorded — trip completed!</p>
                 <div className="mt-2 space-y-1">
                   <p className="text-sm text-slate-300">Truck: <span className="font-mono font-bold">{success.no_lambung}</span></p>
                   <p className="text-sm text-slate-300">Netto Jetty: <span className="font-bold text-emerald-400">{success.netto_jetty_kg?.toLocaleString()} kg</span></p>
@@ -204,7 +204,7 @@ export default function JettyOperatorPage() {
         {trip && !success && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-200">CP3 — Jetty Weighing</h2>
+              <h2 className="text-base font-semibold text-slate-200">Jam Masuk Jetty — Weighing</h2>
               <span className="badge badge-blue">In Transit</span>
             </div>
             <div className="bg-slate-800/60 rounded-xl px-4 mb-5">
@@ -212,11 +212,11 @@ export default function JettyOperatorPage() {
               <InfoRow label="Truck ID" value={trip.no_lambung} mono />
               <InfoRow label="Jetty" value={trip.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'} />
               <InfoRow label="Coal Quality" value={trip.coal_quality === 'raw' ? 'Raw 原煤' : 'Clean 精煤'} />
-              <InfoRow label="Tare Site (CP1)" value={`${trip.tare_site_kg?.toLocaleString()} kg`} />
-              <InfoRow label="Gross Site (CP2)" value={`${trip.gross_site_kg?.toLocaleString()} kg`} />
+              <InfoRow label="Tare Site (Jam Masuk)" value={`${trip.tare_site_kg?.toLocaleString()} kg`} />
+              <InfoRow label="Gross Site (Jam Keluar)" value={`${trip.gross_site_kg?.toLocaleString()} kg`} />
               <InfoRow label="Netto Site" value={`${trip.netto_site_kg?.toLocaleString()} kg`} />
-              <InfoRow label="CP1 Time" value={toWITA(trip.cp1_timestamp)} />
-              <InfoRow label="CP2 Time" value={toWITA(trip.cp2_timestamp)} />
+              <InfoRow label="Jam Masuk" value={toWITA(trip.cp1_timestamp)} />
+              <InfoRow label="Jam Keluar" value={toWITA(trip.cp2_timestamp)} />
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -250,7 +250,7 @@ export default function JettyOperatorPage() {
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={reset} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" className="btn-success flex-1" disabled={submitting}>
-                  {submitting ? <Spinner className="h-5 w-5" /> : 'Complete — CP3'}
+                  {submitting ? <Spinner className="h-5 w-5" /> : 'Jam Masuk Jetty — Complete'}
                 </button>
               </div>
             </form>
@@ -309,7 +309,7 @@ export default function JettyOperatorPage() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-slate-400">{t.netto_site_kg?.toLocaleString()} kg netto · tap to record CP3 →</span>
+                        <span className="text-xs text-slate-400">{t.netto_site_kg?.toLocaleString()} kg netto · tap to record Jam Masuk Jetty →</span>
                         <span className="text-xs text-slate-500">{elapsed(t.cp2_timestamp)}</span>
                       </div>
                     </button>
