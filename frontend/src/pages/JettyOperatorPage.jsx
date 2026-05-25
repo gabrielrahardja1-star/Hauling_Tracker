@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
+import ExportPanel from '../components/ExportPanel';
 import { api } from '../lib/api';
 
 const STATUS_STYLE = {
@@ -34,6 +35,7 @@ function InfoRow({ label, value, mono }) {
 }
 
 export default function JettyOperatorPage() {
+  const [tab, setTab] = useState('cp3');
   const [jettyFilter, setJettyFilter] = useState('');
   const [allTrips, setAllTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
@@ -133,8 +135,26 @@ export default function JettyOperatorPage() {
   const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
 
   return (
-    <Layout title="Jetty — CP3">
+    <Layout title={tab === 'cp3' ? 'Jetty — CP3' : 'Jetty — Export'}>
       <div className="space-y-5">
+
+        {/* Tab switcher */}
+        <div className="grid grid-cols-2 gap-2 bg-slate-900 rounded-xl p-1">
+          {[
+            { key: 'cp3', label: `CP3${inTransitCount ? ` (${inTransitCount})` : ''}` },
+            { key: 'export', label: 'Export' },
+          ].map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                tab === t.key ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'export' && <ExportPanel />}
+        {tab === 'cp3' && <>
 
         {/* Success */}
         {success && (
@@ -322,6 +342,8 @@ export default function JettyOperatorPage() {
             )}
           </div>
         )}
+
+        </>}
 
       </div>
     </Layout>

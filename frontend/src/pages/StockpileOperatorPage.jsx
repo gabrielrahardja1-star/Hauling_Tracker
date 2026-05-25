@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
+import ExportPanel from '../components/ExportPanel';
 import { api } from '../lib/api';
 
 const WITA_OPTS = { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false };
@@ -406,10 +407,11 @@ export default function StockpileOperatorPage() {
     <Layout title={tab === 'cp1' ? 'Stockpile — CP1' : 'Stockpile — CP2'}>
       <div className="space-y-4">
         {/* Tab switcher */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-900 rounded-xl p-1">
+        <div className="grid grid-cols-3 gap-2 bg-slate-900 rounded-xl p-1">
           {[
-            { key: 'cp1', label: 'CP1 — Arrival' },
-            { key: 'cp2', label: `CP2 — Departure${pendingTrips.length ? ` (${pendingTrips.length})` : ''}` },
+            { key: 'cp1', label: 'CP1' },
+            { key: 'cp2', label: `CP2${pendingTrips.length ? ` (${pendingTrips.length})` : ''}` },
+            { key: 'export', label: 'Export' },
           ].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
@@ -422,14 +424,16 @@ export default function StockpileOperatorPage() {
           ))}
         </div>
 
-        {tab === 'cp1' ? (
+        {tab === 'cp1' && (
           <>
             <CP1Form onSuccess={fetchTrips} />
             <TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} onSelectPending={null} />
           </>
-        ) : (
+        )}
+        {tab === 'cp2' && (
           <CP2Form onSuccess={fetchTrips} pendingTrips={pendingTrips} tripsLoading={tripsLoading} />
         )}
+        {tab === 'export' && <ExportPanel />}
       </div>
     </Layout>
   );

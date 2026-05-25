@@ -169,8 +169,8 @@ router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res)
   res.json(trips);
 });
 
-// GET /trips/export?date=&jetty= — admin Excel export
-router.get('/export', requireRole('admin'), async (req, res) => {
+// GET /trips/export?date=&jetty= — Excel export (all roles)
+router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
   const { date, jetty } = req.query;
   if (!date || !jetty) return res.status(400).json({ error: 'date and jetty are required' });
 
@@ -193,38 +193,51 @@ router.get('/export', requireRole('admin'), async (req, res) => {
     return wita.toISOString().slice(11, 16);
   };
 
+  const numFmt = '#,##0';
+  const centerAlign = { horizontal: 'center', vertical: 'middle' };
+  const rightAlign  = { horizontal: 'right',  vertical: 'middle' };
+  const leftAlign   = { horizontal: 'left',   vertical: 'middle' };
+
   const [year, month, day] = date.split('-');
 
   // Row 1 — title
   sheet.addRow([`${year}年${month}月${day}日运煤明细`]);
   sheet.mergeCells(1, 1, 1, TOTAL_COLS);
-  sheet.getRow(1).getCell(1).alignment = { horizontal: 'center' };
-  sheet.getRow(1).font = { bold: true, size: 14 };
+  sheet.getRow(1).height = 28;
+  sheet.getRow(1).getCell(1).alignment = centerAlign;
+  sheet.getRow(1).font = { bold: true, size: 16 };
 
   // Row 2 — date
-  const dateCell = sheet.addRow([new Date(date)]);
+  sheet.addRow([new Date(date)]);
   sheet.mergeCells(2, 1, 2, TOTAL_COLS);
+  sheet.getRow(2).height = 20;
   sheet.getRow(2).getCell(1).numFmt = 'yyyy-mm-dd';
+  sheet.getRow(2).getCell(1).alignment = centerAlign;
+  sheet.getRow(2).font = { size: 11 };
 
   // Row 3 — Chinese headers
-  sheet.addRow([
+  const chRow = sheet.addRow([
     '序号', '车号', '进入时间', '离开时间',
     '总重(MMI)', `总重(${jettyLabel})`, '相差',
     '皮重(MMI)', `皮重(${jettyLabel})`, '相差',
     '净重(MMI)', `净重(${jettyLabel})`, '相差',
     '天气(MMI)', '媒质',
   ]);
-  sheet.getRow(3).font = { bold: true };
+  chRow.height = 22;
+  chRow.font = { bold: true, size: 11 };
+  chRow.eachCell((cell) => { cell.alignment = centerAlign; });
 
   // Row 4 — Indonesian headers
-  sheet.addRow([
+  const idRow = sheet.addRow([
     'No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
     'Gross Site (KG)', `Gross ${jettyLabel} (KG)`, 'Compare Gross',
     'Tare Site (KG)', `Tare ${jettyLabel} (KG)`, 'Compare Tare',
     'Netto Site (KG)', `Netto ${jettyLabel} (KG)`, 'Deviasi (KG)',
     'Cuaca (MMI)', 'Coal quality',
   ]);
-  sheet.getRow(4).font = { bold: true };
+  idRow.height = 22;
+  idRow.font = { bold: true, size: 10 };
+  idRow.eachCell((cell) => { cell.alignment = centerAlign; });
 
   // Freeze header rows
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
@@ -245,7 +258,7 @@ router.get('/export', requireRole('admin'), async (req, res) => {
     sumNettoJetty   += t.netto_jetty_kg   || 0;
     sumDeviasi      += t.deviasi_kg       || 0;
 
-    sheet.addRow([
+    const dataRow = sheet.addRow([
       t.no_tiket,
       t.no_lambung,
       toHHMM(t.cp1_timestamp),
@@ -262,6 +275,19 @@ router.get('/export', requireRole('admin'), async (req, res) => {
       t.cuaca_mmi,
       t.coal_quality === 'raw' ? '原煤' : '精煤',
     ]);
+    dataRow.height = 18;
+    dataRow.font = { size: 11 };
+    dataRow.getCell(1).alignment  = centerAlign;
+    dataRow.getCell(2).alignment  = centerAlign;
+    dataRow.getCell(3).alignment  = centerAlign;
+    dataRow.getCell(4).alignment  = centerAlign;
+    dataRow.getCell(14).alignment = leftAlign;
+    dataRow.getCell(15).alignment = centerAlign;
+    // Number format for KG columns
+    [5,6,7,8,9,10,11,12,13].forEach((c) => {
+      dataRow.getCell(c).numFmt = numFmt;
+      dataRow.getCell(c).alignment = rightAlign;
+    });
   });
 
   // Totals row
@@ -272,10 +298,16 @@ router.get('/export', requireRole('admin'), async (req, res) => {
     sumNettoSite, sumNettoJetty, sumDeviasi,
     '', '',
   ]);
-  totalsRow.font = { bold: true };
+  totalsRow.height = 22;
+  totalsRow.font = { bold: true, size: 12 };
+  totalsRow.getCell(2).alignment = centerAlign;
+  [5,6,7,8,9,10,11,12,13].forEach((c) => {
+    totalsRow.getCell(c).numFmt = numFmt;
+    totalsRow.getCell(c).alignment = rightAlign;
+  });
 
-  // Column widths
-  const colWidths = [10, 16, 18, 18, 16, 16, 14, 14, 14, 14, 14, 14, 14, 16, 12];
+  // Column widths (wider)
+  const colWidths = [10, 20, 20, 20, 18, 18, 16, 16, 16, 16, 16, 16, 16, 18, 14];
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
