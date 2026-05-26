@@ -148,7 +148,7 @@ export default function ExportPanel() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-700/50 bg-slate-800/40">
-                  {['#', 'Truck', 'Status', 'Tare Site', 'Gross Site', 'Netto Site', 'Gross Jetty', 'Tare Jetty', 'Netto Jetty', 'Deviasi', 'Jam Masuk', 'Jam Keluar', 'Jam Masuk Jetty'].map((h) => (
+                  {['#', 'Truck', 'Status', 'Tare Site', 'Gross Site', 'Netto Site', 'Gross Jetty', 'Netto Jetty', 'Deviasi', 'Jam Masuk', 'Jam Keluar', 'Jam Masuk Jetty'].map((h) => (
                     <th key={h} className="text-left text-slate-400 font-medium px-3 py-2.5 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -165,7 +165,6 @@ export default function ExportPanel() {
                       <td className="px-3 py-2.5 text-right">{t.gross_site_kg?.toLocaleString() ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right font-medium text-emerald-400">{t.netto_site_kg?.toLocaleString() ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right">{t.gross_jetty_kg?.toLocaleString() ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-right">{t.tare_jetty_kg?.toLocaleString() ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right font-medium text-blue-400">{t.netto_jetty_kg?.toLocaleString() ?? '—'}</td>
                       <td className={`px-3 py-2.5 text-right font-medium ${t.deviasi_kg != null ? (t.deviasi_kg < 0 ? 'text-red-400' : 'text-slate-300') : ''}`}>
                         {t.deviasi_kg?.toLocaleString() ?? '—'}

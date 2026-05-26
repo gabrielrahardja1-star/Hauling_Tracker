@@ -75,34 +75,31 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req,
 // PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
 router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res) => {
   const { id } = req.params;
-  const { gross_jetty_kg, tare_jetty_kg } = req.body;
+  const { gross_jetty_kg } = req.body;
 
-  if (!gross_jetty_kg || !tare_jetty_kg) {
-    return res.status(400).json({ error: 'gross_jetty_kg and tare_jetty_kg are required' });
+  if (!gross_jetty_kg || gross_jetty_kg <= 0) {
+    return res.status(400).json({ error: 'gross_jetty_kg is required and must be positive' });
   }
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
 
-  const netto_jetty_kg   = gross_jetty_kg - tare_jetty_kg;
+  const netto_jetty_kg   = gross_jetty_kg;
   const compare_gross_kg = gross_jetty_kg - trip.gross_site_kg;
-  const compare_tare_kg  = tare_jetty_kg  - trip.tare_site_kg;
   const deviasi_kg       = netto_jetty_kg - trip.netto_site_kg;
 
   const [updated] = await query(
     `update trips
      set gross_jetty_kg   = $1,
-         tare_jetty_kg    = $2,
-         netto_jetty_kg   = $3,
-         compare_gross_kg = $4,
-         compare_tare_kg  = $5,
-         deviasi_kg       = $6,
+         netto_jetty_kg   = $2,
+         compare_gross_kg = $3,
+         deviasi_kg       = $4,
          cp3_timestamp    = now(),
          status           = 'completed'
-     where trip_id = $7
+     where trip_id = $5
      returning *`,
-    [gross_jetty_kg, tare_jetty_kg, netto_jetty_kg, compare_gross_kg, compare_tare_kg, deviasi_kg, id]
+    [gross_jetty_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, id]
   );
 
   res.json(updated);
@@ -184,7 +181,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Trips');
 
-  const TOTAL_COLS = 15;
+  const TOTAL_COLS = 13;
   const jettyLabel = jetty === 'hasnur' ? 'HBM' : 'Talenta';
 
   const toHHMM = (ts) => {
@@ -219,7 +216,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const chRow = sheet.addRow([
     '序号', '车号', '进入时间', '离开时间',
     '总重(MMI)', `总重(${jettyLabel})`, '相差',
-    '皮重(MMI)', `皮重(${jettyLabel})`, '相差',
+    '皮重(MMI)',
     '净重(MMI)', `净重(${jettyLabel})`, '相差',
     '天气(MMI)', '媒质',
   ]);
@@ -231,7 +228,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const idRow = sheet.addRow([
     'No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
     'Gross Site (KG)', `Gross ${jettyLabel} (KG)`, 'Compare Gross',
-    'Tare Site (KG)', `Tare ${jettyLabel} (KG)`, 'Compare Tare',
+    'Tare Site (KG)',
     'Netto Site (KG)', `Netto ${jettyLabel} (KG)`, 'Deviasi (KG)',
     'Cuaca (MMI)', 'Coal quality',
   ]);
@@ -244,16 +241,13 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
 
   // Data rows + running totals
   let sumGrossSite = 0, sumGrossJetty = 0, sumCompareGross = 0;
-  let sumTareSite = 0, sumTareJetty = 0, sumCompareTare = 0;
-  let sumNettoSite = 0, sumNettoJetty = 0, sumDeviasi = 0;
+  let sumTareSite = 0, sumNettoSite = 0, sumNettoJetty = 0, sumDeviasi = 0;
 
   trips.forEach((t) => {
     sumGrossSite    += t.gross_site_kg    || 0;
     sumGrossJetty   += t.gross_jetty_kg   || 0;
     sumCompareGross += t.compare_gross_kg || 0;
     sumTareSite     += t.tare_site_kg     || 0;
-    sumTareJetty    += t.tare_jetty_kg    || 0;
-    sumCompareTare  += t.compare_tare_kg  || 0;
     sumNettoSite    += t.netto_site_kg    || 0;
     sumNettoJetty   += t.netto_jetty_kg   || 0;
     sumDeviasi      += t.deviasi_kg       || 0;
@@ -267,8 +261,6 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
       t.gross_jetty_kg,
       t.compare_gross_kg,
       t.tare_site_kg,
-      t.tare_jetty_kg,
-      t.compare_tare_kg,
       t.netto_site_kg,
       t.netto_jetty_kg,
       t.deviasi_kg,
@@ -281,10 +273,10 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     dataRow.getCell(2).alignment  = centerAlign;
     dataRow.getCell(3).alignment  = centerAlign;
     dataRow.getCell(4).alignment  = centerAlign;
-    dataRow.getCell(14).alignment = leftAlign;
-    dataRow.getCell(15).alignment = centerAlign;
+    dataRow.getCell(12).alignment = leftAlign;
+    dataRow.getCell(13).alignment = centerAlign;
     // Number format for KG columns
-    [5,6,7,8,9,10,11,12,13].forEach((c) => {
+    [5,6,7,8,9,10,11].forEach((c) => {
       dataRow.getCell(c).numFmt = numFmt;
       dataRow.getCell(c).alignment = rightAlign;
     });
@@ -294,20 +286,19 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const totalsRow = sheet.addRow([
     '', '总计 / TOTAL', '', '',
     sumGrossSite, sumGrossJetty, sumCompareGross,
-    sumTareSite, sumTareJetty, sumCompareTare,
-    sumNettoSite, sumNettoJetty, sumDeviasi,
+    sumTareSite, sumNettoSite, sumNettoJetty, sumDeviasi,
     '', '',
   ]);
   totalsRow.height = 22;
   totalsRow.font = { bold: true, size: 12 };
   totalsRow.getCell(2).alignment = centerAlign;
-  [5,6,7,8,9,10,11,12,13].forEach((c) => {
+  [5,6,7,8,9,10,11].forEach((c) => {
     totalsRow.getCell(c).numFmt = numFmt;
     totalsRow.getCell(c).alignment = rightAlign;
   });
 
   // Column widths (wider)
-  const colWidths = [10, 20, 20, 20, 18, 18, 16, 16, 16, 16, 16, 16, 16, 18, 14];
+  const colWidths = [10, 20, 20, 20, 18, 18, 16, 16, 16, 16, 16, 18, 14];
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -349,10 +340,9 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
   if (m.gross_site_kg != null && m.tare_site_kg != null) {
     m.netto_site_kg = m.gross_site_kg - m.tare_site_kg;
   }
-  if (m.gross_jetty_kg != null && m.tare_jetty_kg != null) {
-    m.netto_jetty_kg   = m.gross_jetty_kg - m.tare_jetty_kg;
+  if (m.gross_jetty_kg != null) {
+    m.netto_jetty_kg   = m.gross_jetty_kg;
     m.compare_gross_kg = m.gross_jetty_kg - (m.gross_site_kg || 0);
-    m.compare_tare_kg  = m.tare_jetty_kg  - m.tare_site_kg;
     m.deviasi_kg       = m.netto_jetty_kg - (m.netto_site_kg || 0);
   }
 
@@ -371,20 +361,18 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
        netto_site_kg    = $11,
        cp2_timestamp    = $12,
        gross_jetty_kg   = $13,
-       tare_jetty_kg    = $14,
-       netto_jetty_kg   = $15,
-       compare_gross_kg = $16,
-       compare_tare_kg  = $17,
-       deviasi_kg       = $18,
-       cp3_timestamp    = $19
-     where trip_id = $20
+       netto_jetty_kg   = $14,
+       compare_gross_kg = $15,
+       deviasi_kg       = $16,
+       cp3_timestamp    = $17
+     where trip_id = $18
      returning *`,
     [
       m.date, m.status, m.no_tiket, m.no_lambung,
       m.jetty_destination, m.coal_quality, m.cuaca_mmi, m.tare_site_kg,
       m.cp1_timestamp, m.gross_site_kg, m.netto_site_kg, m.cp2_timestamp,
-      m.gross_jetty_kg, m.tare_jetty_kg, m.netto_jetty_kg,
-      m.compare_gross_kg, m.compare_tare_kg, m.deviasi_kg, m.cp3_timestamp,
+      m.gross_jetty_kg, m.netto_jetty_kg,
+      m.compare_gross_kg, m.deviasi_kg, m.cp3_timestamp,
       id,
     ]
   );

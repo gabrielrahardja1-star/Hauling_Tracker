@@ -46,7 +46,6 @@ export default function JettyOperatorPage() {
   const [trip, setTrip] = useState(null);
 
   const [grossJetty, setGrossJetty] = useState('');
-  const [tareJetty, setTareJetty] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -69,7 +68,7 @@ export default function JettyOperatorPage() {
   function selectTrip(t) {
     setTrip(t);
     setSearchInput(t.no_lambung);
-    setGrossJetty(''); setTareJetty('');
+    setGrossJetty('');
     setSubmitError(''); setSuccess(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -78,7 +77,7 @@ export default function JettyOperatorPage() {
     e.preventDefault();
     if (!searchInput.trim()) return;
     setSearchError(''); setTrip(null); setSuccess(null);
-    setGrossJetty(''); setTareJetty('');
+    setGrossJetty('');
     setSearching(true);
     try {
       const t = await api.searchTrip(searchInput.trim().toUpperCase(), 'in_transit');
@@ -94,13 +93,11 @@ export default function JettyOperatorPage() {
     e.preventDefault();
     setSubmitError('');
     const grossKg = parseInt(grossJetty, 10);
-    const tareKg  = parseInt(tareJetty, 10);
     if (!grossKg || grossKg <= 0) return setSubmitError('Gross jetty weight must be a positive number');
-    if (!tareKg  || tareKg  <= 0) return setSubmitError('Tare jetty weight must be a positive number');
 
     setSubmitting(true);
     try {
-      const updated = await api.submitCP3(trip.trip_id, { gross_jetty_kg: grossKg, tare_jetty_kg: tareKg });
+      const updated = await api.submitCP3(trip.trip_id, { gross_jetty_kg: grossKg });
       setSuccess(updated);
       setTrip(null);
       fetchTrips();
@@ -114,16 +111,14 @@ export default function JettyOperatorPage() {
   function reset() {
     setTrip(null); setSuccess(null);
     setSearchInput(''); setSearchError('');
-    setGrossJetty(''); setTareJetty(''); setSubmitError('');
+    setGrossJetty(''); setSubmitError('');
   }
 
-  const g  = parseInt(grossJetty, 10) || 0;
-  const tr = parseInt(tareJetty,  10) || 0;
-  const preview = trip && g && tr ? {
-    netto_jetty:   g - tr,
-    compare_gross: g  - (trip.gross_site_kg || 0),
-    compare_tare:  tr - trip.tare_site_kg,
-    deviasi:       (g - tr) - (trip.netto_site_kg || 0),
+  const g = parseInt(grossJetty, 10) || 0;
+  const preview = trip && g ? {
+    netto_jetty:   g,
+    compare_gross: g - (trip.gross_site_kg || 0),
+    deviasi:       g - (trip.netto_site_kg || 0),
   } : null;
 
   const jettyLabel = trip?.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta';
@@ -224,17 +219,11 @@ export default function JettyOperatorPage() {
                 <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 42000"
                   value={grossJetty} onChange={(e) => { setGrossJetty(e.target.value); setSubmitError(''); }} min={1} required />
               </div>
-              <div>
-                <label className="label">Tare {jettyLabel} — kg</label>
-                <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 18000"
-                  value={tareJetty} onChange={(e) => { setTareJetty(e.target.value); setSubmitError(''); }} min={1} required />
-              </div>
               {preview && (
                 <div className="rounded-xl bg-slate-800/60 px-4 py-3 space-y-2">
                   {[
                     { label: 'Netto Jetty',   value: preview.netto_jetty,   color: preview.netto_jetty > 0 ? 'text-emerald-400' : 'text-red-400' },
                     { label: 'Compare Gross', value: preview.compare_gross, color: 'text-slate-300' },
-                    { label: 'Compare Tare',  value: preview.compare_tare,  color: 'text-slate-300' },
                     { label: 'Deviasi',       value: preview.deviasi,       color: preview.deviasi < 0 ? 'text-red-400' : 'text-blue-400' },
                   ].map((row) => (
                     <div key={row.label} className="flex justify-between text-sm">

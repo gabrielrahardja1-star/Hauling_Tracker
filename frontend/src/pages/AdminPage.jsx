@@ -325,7 +325,7 @@ export default function AdminPage() {
                   <tr className="border-b border-slate-700/50 bg-slate-800/40">
                     {['#', 'Truck', 'Jetty', 'Status', 'Coal', 'Cuaca',
                       'Tare Site', 'Gross Site', 'Netto Site', 'CP1',
-                      'Gross Jetty', 'Tare Jetty', 'Netto Jetty', 'Comp.Gross', 'Comp.Tare', 'Deviasi', 'CP2', 'CP3',
+                      'Gross Jetty', 'Netto Jetty', 'Comp.Gross', 'Deviasi', 'CP2', 'CP3',
                     ].map((h) => (
                       <th key={h} className="text-left text-slate-400 font-medium px-3 py-2.5 whitespace-nowrap">{h}</th>
                     ))}
@@ -365,19 +365,13 @@ export default function AdminPage() {
                       <td className="px-3 py-2.5 text-right">
                         <EditCell value={t.gross_jetty_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} />
                       </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <EditCell value={t.tare_jetty_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_jetty_kg', v)} />
-                      </td>
                       <td className="px-3 py-2.5 text-right font-medium text-blue-400">
                         {t.netto_jetty_kg != null
-                          ? <EditCell value={t.netto_jetty_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_jetty_kg', v)} />
+                          ? <span>{Number(t.netto_jetty_kg).toLocaleString()}</span>
                           : <span className="text-slate-600">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {t.compare_gross_kg != null ? <span>{Number(t.compare_gross_kg).toLocaleString()}</span> : <span className="text-slate-600">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        {t.compare_tare_kg != null ? <span>{Number(t.compare_tare_kg).toLocaleString()}</span> : <span className="text-slate-600">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {t.deviasi_kg != null
