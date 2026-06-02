@@ -19,8 +19,10 @@ function RoleRoute({ roles, children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="h-10 w-10" />
+      <div className="app-shell" data-direction="b" data-theme="light" data-density="regular">
+        <div className="app-viewport" style={{ alignItems: 'center', justifyContent: 'center' }}>
+          <Spinner className="h-10 w-10" />
+        </div>
       </div>
     );
   }

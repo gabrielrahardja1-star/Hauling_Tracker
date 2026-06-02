@@ -4,6 +4,7 @@ const TOKEN_KEY = 'ht_token';
 const USER_KEY  = 'ht_user';
 
 const AuthContext = createContext(null);
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 
 function parseJwt(token) {
   try {
@@ -39,13 +40,26 @@ export function AuthProvider({ children }) {
   const loading = false;
 
   async function signIn(email, password) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || 'Login failed');
+
+    const text = await res.text();
+    let json = {};
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(`API returned ${res.status || 'a'} non-JSON response. Is the backend running?`);
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error(json.error || `Login request failed (${res.status}). Is the backend running?`);
+    }
+    if (!json.token || !json.user) throw new Error('Login response was missing user session data');
 
     localStorage.setItem(TOKEN_KEY, json.token);
     localStorage.setItem(USER_KEY, JSON.stringify(json.user));

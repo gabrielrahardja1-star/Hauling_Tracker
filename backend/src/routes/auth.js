@@ -2,11 +2,16 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query, queryOne } from '../lib/db.js';
+import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
+wrapAsyncRoutes(router);
 
 function signToken(user) {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
   return jwt.sign(
     { user_id: user.user_id, email: user.email, role: user.role },
     process.env.JWT_SECRET,

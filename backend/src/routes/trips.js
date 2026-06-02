@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import ExcelJS from 'exceljs';
 import { query, queryOne } from '../lib/db.js';
+import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
+wrapAsyncRoutes(router);
 router.use(requireAuth);
 
 function witaDate() {

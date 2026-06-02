@@ -2,36 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
+import {
+  Banner,
+  BottomTabs,
+  DestChip,
+  Field,
+  I,
+  InfoGrid,
+  JETTY,
+  QUALITY,
+  StatusPill,
+  TripListCard,
+  Weight,
+  elapsed,
+  kg,
+  toWITA,
+} from '../components/DesignSystem';
 import { api } from '../lib/api';
 
-const STATUS_STYLE = {
-  pending:    { badge: 'badge-yellow', label: 'Pending' },
-  in_transit: { badge: 'badge-blue',   label: 'In Transit' },
-  completed:  { badge: 'badge-green',  label: 'Completed' },
-};
-
-const WITA_OPTS = { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false };
-function toWITA(ts) {
-  if (!ts) return '—';
-  return new Intl.DateTimeFormat('id-ID', WITA_OPTS).format(new Date(ts));
-}
-
-function elapsed(ts) {
-  if (!ts) return '';
-  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
-}
-
-function InfoRow({ label, value, mono }) {
-  return (
-    <div className="flex justify-between items-start py-2.5 border-b border-slate-700/50 last:border-0">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className={`text-sm font-medium text-slate-100 text-right ml-4 ${mono ? 'font-mono' : ''}`}>
-        {value ?? '—'}
-      </span>
-    </div>
-  );
+function scrollContentTop() {
+  document.querySelector('.screen')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 export default function JettyOperatorPage() {
@@ -54,7 +44,9 @@ export default function JettyOperatorPage() {
     setTripsLoading(true);
     try {
       setAllTrips(await api.getTodayTrips(jettyFilter));
-    } catch { /* silent */ } finally {
+    } catch {
+      /* silent refresh failure */
+    } finally {
       setTripsLoading(false);
     }
   }, [jettyFilter]);
@@ -69,14 +61,17 @@ export default function JettyOperatorPage() {
     setTrip(t);
     setSearchInput(t.no_lambung);
     setGrossJetty('');
-    setSubmitError(''); setSuccess(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSubmitError('');
+    setSuccess(null);
+    scrollContentTop();
   }
 
   async function handleSearch(e) {
     e.preventDefault();
     if (!searchInput.trim()) return;
-    setSearchError(''); setTrip(null); setSuccess(null);
+    setSearchError('');
+    setTrip(null);
+    setSuccess(null);
     setGrossJetty('');
     setSearching(true);
     try {
@@ -93,7 +88,10 @@ export default function JettyOperatorPage() {
     e.preventDefault();
     setSubmitError('');
     const grossKg = parseInt(grossJetty, 10);
-    if (!grossKg || grossKg <= 0) return setSubmitError('Gross jetty weight must be a positive number');
+    if (!grossKg || grossKg <= 0) {
+      setSubmitError('Berat bruto jetty harus lebih dari 0 kg.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -109,232 +107,187 @@ export default function JettyOperatorPage() {
   }
 
   function reset() {
-    setTrip(null); setSuccess(null);
-    setSearchInput(''); setSearchError('');
-    setGrossJetty(''); setSubmitError('');
+    setTrip(null);
+    setSuccess(null);
+    setSearchInput('');
+    setSearchError('');
+    setGrossJetty('');
+    setSubmitError('');
   }
 
   const g = parseInt(grossJetty, 10) || 0;
   const preview = trip && g ? {
-    netto_jetty:   g,
+    netto_jetty: g,
     compare_gross: g - (trip.gross_site_kg || 0),
-    deviasi:       g - (trip.netto_site_kg || 0),
+    deviasi: g - (trip.netto_site_kg || 0),
   } : null;
 
-  const jettyLabel = trip?.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta';
-
-  // Filtered list for display
-  const displayTrips = jettyFilter
-    ? allTrips.filter((t) => t.jetty_destination === jettyFilter)
-    : allTrips;
+  const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
   const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
+  const titles = { cp3: 'Timbang Jetty', trips: 'Trip Hari Ini', export: 'Ekspor' };
+  const tabs = [
+    { key: 'cp3', label: 'Timbang', icon: I.scale, badge: inTransitCount },
+    { key: 'trips', label: 'Trip', icon: I.list },
+    { key: 'export', label: 'Ekspor', icon: I.download },
+  ];
+
+  const filterControl = (
+    <select className="inline-edit" style={{ minWidth: 112 }} value={jettyFilter} onChange={(e) => setJettyFilter(e.target.value)}>
+      <option value="">Semua</option>
+      <option value="hasnur">Hasnur</option>
+      <option value="talenta">Talenta</option>
+    </select>
+  );
 
   return (
-    <Layout title={tab === 'cp3' ? 'Jam Masuk Jetty' : 'Export'}>
-      <div className="space-y-5">
+    <Layout
+      title={titles[tab]}
+      footer={<BottomTabs tabs={tabs} active={tab} onChange={setTab} />}
+    >
+      {tab === 'export' && <ExportPanel />}
 
-        {/* Tab switcher */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-900 rounded-xl p-1">
-          {[
-            { key: 'cp3', label: `Jam Masuk Jetty${inTransitCount ? ` (${inTransitCount})` : ''}` },
-            { key: 'export', label: 'Export' },
-          ].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                tab === t.key ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {tab === 'trips' && (
+        <TripListCard
+          title="Trip Hari Ini"
+          sub={`${displayTrips.length} truk - ${inTransitCount} perjalanan`}
+          trips={displayTrips}
+          loading={tripsLoading}
+          right={filterControl}
+          onRefresh={fetchTrips}
+          getTap={(t) => (t.status === 'in_transit' ? () => selectTrip(t) : null)}
+          cta="Timbang"
+        />
+      )}
 
-        {tab === 'export' && <ExportPanel />}
-        {tab === 'cp3' && <>
+      {tab === 'cp3' && (
+        <div className="stack" style={{ gap: 14 }}>
+          {success && (
+            <Banner
+              title="Timbang jetty selesai"
+              action={
+                <button type="button" onClick={reset} className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>
+                  Selesai
+                </button>
+              }
+            >
+              {success.no_lambung} - Netto jetty {kg(success.netto_jetty_kg)} kg - Deviasi {kg(success.deviasi_kg)} kg
+            </Banner>
+          )}
 
-        {/* Success */}
-        {success && (
-          <div className="card border-emerald-700/50 bg-emerald-900/20">
-            <div className="flex items-start gap-3">
-              <div className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-emerald-300">Jam Masuk Jetty recorded — trip completed!</p>
-                <div className="mt-2 space-y-1">
-                  <p className="text-sm text-slate-300">Truck: <span className="font-mono font-bold">{success.no_lambung}</span></p>
-                  <p className="text-sm text-slate-300">Netto Jetty: <span className="font-bold text-emerald-400">{success.netto_jetty_kg?.toLocaleString()} kg</span></p>
-                  <p className="text-sm text-slate-300">Deviasi: <span className={`font-bold ${success.deviasi_kg < 0 ? 'text-red-400' : 'text-blue-400'}`}>{success.deviasi_kg?.toLocaleString()} kg</span></p>
-                </div>
-                <button onClick={reset} className="btn-secondary mt-4 w-full text-sm py-3">Done</button>
-              </div>
+          {!success && (
+            <div className="card">
+              <form onSubmit={handleSearch} className="row" style={{ gap: 10 }}>
+                <input
+                  type="text"
+                  className="input num grow"
+                  placeholder="Cari no. lambung"
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value.toUpperCase());
+                    setSearchError('');
+                  }}
+                />
+                <button type="submit" className="btn btn-brand btn-sm" style={{ width: 54, padding: 0 }} disabled={searching || !searchInput.trim()}>
+                  {searching ? <Spinner className="h-5 w-5" /> : <I.search width="20" height="20" />}
+                </button>
+              </form>
+              {searchError && <div className="alert" style={{ marginTop: 12 }}>{searchError}</div>}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Search */}
-        {!success && (
-          <div className="card">
-            <h2 className="text-base font-semibold text-slate-200 mb-4">Find Truck</h2>
-            <form onSubmit={handleSearch} className="flex gap-3">
-              <input type="text" className="input-field flex-1 uppercase" placeholder="Enter Truck ID..."
-                value={searchInput}
-                onChange={(e) => { setSearchInput(e.target.value.toUpperCase()); setSearchError(''); }} />
-              <button type="submit" className="btn-primary px-5 shrink-0" disabled={searching || !searchInput.trim()}>
-                {searching ? <Spinner className="h-5 w-5" /> : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-                  </svg>
+          {trip && !success && (
+            <div className="stack" style={{ gap: 16 }}>
+              <div className="between">
+                <div className="section-label">Timbang ulang - {JETTY[trip.jetty_destination]}</div>
+                <StatusPill status="in_transit" />
+              </div>
+
+              <div className="card">
+                <div className="between" style={{ marginBottom: 14 }}>
+                  <div>
+                    <div className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+                      #{trip.no_tiket} - {QUALITY[trip.coal_quality]} - {elapsed(trip.cp2_timestamp)}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 22 }}>{trip.no_lambung}</div>
+                  </div>
+                  <DestChip dest={trip.jetty_destination} />
+                </div>
+                <InfoGrid
+                  items={[
+                    { label: 'Netto Site', value: kg(trip.netto_site_kg) },
+                    { label: 'Gross Site', value: kg(trip.gross_site_kg) },
+                    { label: 'Jam Masuk', value: toWITA(trip.cp1_timestamp) },
+                    { label: 'Jam Keluar', value: toWITA(trip.cp2_timestamp) },
+                  ]}
+                />
+              </div>
+
+              <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
+                <Field label={`Berat Isi di ${JETTY[trip.jetty_destination]}`} hint="Bruto - kg">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="input num"
+                    placeholder="0"
+                    value={grossJetty}
+                    onChange={(e) => {
+                      setGrossJetty(e.target.value.replace(/\D/g, ''));
+                      setSubmitError('');
+                    }}
+                    required
+                  />
+                </Field>
+
+                {preview && (
+                  <div className="card" style={{ padding: 14 }}>
+                    <div className="between" style={{ marginBottom: 8 }}>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Netto Jetty</span>
+                      <Weight value={preview.netto_jetty} accent />
+                    </div>
+                    <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Deviasi vs site</span>
+                      <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.deviasi < 0 ? 'var(--danger)' : 'var(--st-transit-fg)' }}>
+                        {preview.deviasi > 0 ? '+' : ''}{kg(preview.deviasi)} kg
+                      </span>
+                    </div>
+                    <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Compare Gross</span>
+                      <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{kg(preview.compare_gross)} kg</span>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </form>
-            {searchError && (
-              <div className="mt-3 rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">{searchError}</div>
-            )}
-          </div>
-        )}
 
-        {/* CP3 form */}
-        {trip && !success && (
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-slate-200">Jam Masuk Jetty — Weighing</h2>
-              <span className="badge badge-blue">In Transit</span>
-            </div>
-            <div className="bg-slate-800/60 rounded-xl px-4 mb-5">
-              <InfoRow label="Ticket #" value={`#${trip.no_tiket}`} />
-              <InfoRow label="Truck ID" value={trip.no_lambung} mono />
-              <InfoRow label="Jetty" value={trip.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'} />
-              <InfoRow label="Coal Quality" value={trip.coal_quality === 'raw' ? 'Raw 原煤' : 'Clean 精煤'} />
-              <InfoRow label="Tare Site (Jam Masuk)" value={`${trip.tare_site_kg?.toLocaleString()} kg`} />
-              <InfoRow label="Gross Site (Jam Keluar)" value={`${trip.gross_site_kg?.toLocaleString()} kg`} />
-              <InfoRow label="Netto Site" value={`${trip.netto_site_kg?.toLocaleString()} kg`} />
-              <InfoRow label="Jam Masuk" value={toWITA(trip.cp1_timestamp)} />
-              <InfoRow label="Jam Keluar" value={toWITA(trip.cp2_timestamp)} />
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="label">Gross {jettyLabel} — kg</label>
-                <input type="number" inputMode="numeric" className="input-field" placeholder="e.g. 42000"
-                  value={grossJetty} onChange={(e) => { setGrossJetty(e.target.value); setSubmitError(''); }} min={1} required />
-              </div>
-              {preview && (
-                <div className="rounded-xl bg-slate-800/60 px-4 py-3 space-y-2">
-                  {[
-                    { label: 'Netto Jetty',   value: preview.netto_jetty,   color: preview.netto_jetty > 0 ? 'text-emerald-400' : 'text-red-400' },
-                    { label: 'Compare Gross', value: preview.compare_gross, color: 'text-slate-300' },
-                    { label: 'Deviasi',       value: preview.deviasi,       color: preview.deviasi < 0 ? 'text-red-400' : 'text-blue-400' },
-                  ].map((row) => (
-                    <div key={row.label} className="flex justify-between text-sm">
-                      <span className="text-slate-400">{row.label}</span>
-                      <span className={`font-semibold ${row.color}`}>{row.value.toLocaleString()} kg</span>
-                    </div>
-                  ))}
+                {submitError && <div className="alert">{submitError}</div>}
+
+                <div className="row" style={{ gap: 10 }}>
+                  <button type="button" onClick={reset} className="btn btn-ghost grow" style={{ width: 'auto' }}>
+                    Batal
+                  </button>
+                  <button type="submit" className="btn btn-accent grow" style={{ width: 'auto' }} disabled={submitting || !(g > 0)}>
+                    {submitting ? <Spinner className="h-5 w-5" /> : <><I.scale width="20" height="20" /> Selesai</>}
+                  </button>
                 </div>
-              )}
-              {submitError && (
-                <div className="rounded-xl bg-red-900/40 border border-red-700/50 text-red-300 text-sm px-4 py-3">{submitError}</div>
-              )}
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={reset} className="btn-secondary flex-1">Cancel</button>
-                <button type="submit" className="btn-success flex-1" disabled={submitting}>
-                  {submitting ? <Spinner className="h-5 w-5" /> : 'Jam Masuk Jetty — Complete'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* All today's trips */}
-        {!trip && !success && (
-          <div className="card p-0 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-200">Today's Trips</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {displayTrips.length} trucks · {inTransitCount} in transit · refreshes every 30s
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded-lg px-2 py-1.5"
-                  value={jettyFilter} onChange={(e) => setJettyFilter(e.target.value)}>
-                  <option value="">All Jettys</option>
-                  <option value="hasnur">Hasnur</option>
-                  <option value="talenta">Talenta</option>
-                </select>
-                <button onClick={fetchTrips} className="text-slate-400 hover:text-white transition-colors p-1" title="Refresh">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-              </div>
+              </form>
             </div>
+          )}
 
-            {tripsLoading ? (
-              <div className="flex justify-center py-8"><Spinner /></div>
-            ) : displayTrips.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-sm">No trips today yet</div>
-            ) : (
-              <div className="divide-y divide-slate-800/60">
-                {displayTrips.map((t) => {
-                  const s = STATUS_STYLE[t.status] ?? { badge: 'badge-gray', label: t.status };
-                  const canSelect = t.status === 'in_transit';
-                  return canSelect ? (
-                    <button key={t.trip_id} onClick={() => selectTrip(t)}
-                      className="w-full text-left px-4 py-3.5 hover:bg-slate-800/40 transition-colors active:bg-slate-700/40">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500 font-mono">#{t.no_tiket}</span>
-                          <span className="font-mono font-bold text-slate-100">{t.no_lambung}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
-                            {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
-                          </span>
-                          <span className={`badge ${s.badge}`}>{s.label}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-slate-400">{t.netto_site_kg?.toLocaleString()} kg netto · tap to record Jam Masuk Jetty →</span>
-                        <span className="text-xs text-slate-500">{elapsed(t.cp2_timestamp)}</span>
-                      </div>
-                    </button>
-                  ) : (
-                    <div key={t.trip_id} className="px-4 py-3.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500 font-mono">#{t.no_tiket}</span>
-                          <span className="font-mono font-bold text-slate-100">{t.no_lambung}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`badge ${t.jetty_destination === 'hasnur' ? 'badge-blue' : 'badge-green'}`}>
-                            {t.jetty_destination === 'hasnur' ? 'Hasnur' : 'Talenta'}
-                          </span>
-                          <span className={`badge ${s.badge}`}>{s.label}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-xs text-slate-400">
-                          {t.status === 'pending'
-                            ? `Tare ${t.tare_site_kg?.toLocaleString()} kg`
-                            : `Netto site ${t.netto_site_kg?.toLocaleString()} kg · Netto jetty ${t.netto_jetty_kg?.toLocaleString()} kg`}
-                        </span>
-                        <span className="text-xs text-slate-500">{toWITA(t.cp1_timestamp)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        </>}
-
-      </div>
+          {!trip && !success && (
+            <>
+              <div className="section-label">Truk dalam perjalanan ke jetty</div>
+              <TripListCard
+                title="Antrian Timbang"
+                sub={`${inTransitCount} truk menuju jetty`}
+                trips={displayTrips}
+                loading={tripsLoading}
+                right={filterControl}
+                onRefresh={fetchTrips}
+                getTap={(t) => (t.status === 'in_transit' ? () => selectTrip(t) : null)}
+                cta="Timbang"
+              />
+            </>
+          )}
+        </div>
+      )}
     </Layout>
   );
 }

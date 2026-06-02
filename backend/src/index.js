@@ -15,6 +15,11 @@ app.use('/auth', authRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
+
 app.listen(PORT, () => {
   console.log(`Hauling Tracker API running on port ${PORT}`);
 });

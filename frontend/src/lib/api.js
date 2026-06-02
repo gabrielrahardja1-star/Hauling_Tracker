@@ -4,7 +4,17 @@ export function setAuthProvider(getToken) {
   _getToken = getToken;
 }
 
-const BASE = import.meta.env.VITE_API_URL;
+const BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+
+async function readJson(res) {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`API returned ${res.status || 'a'} non-JSON response. Is the backend running?`);
+  }
+}
 
 async function request(method, path, body) {
   const token = _getToken();
@@ -18,8 +28,8 @@ async function request(method, path, body) {
   });
 
   if (res.status === 204) return null;
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Request failed');
+  const json = await readJson(res);
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status}). Is the backend running?`);
   return json;
 }
 
@@ -64,7 +74,7 @@ export const api = {
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${BASE}/trips/export?date=${date}&jetty=${jetty}`, { headers });
     if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
+      const json = await readJson(res).catch(() => ({}));
       throw new Error(json.error || 'Export failed');
     }
     return res.blob();
