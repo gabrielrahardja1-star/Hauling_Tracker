@@ -75,7 +75,7 @@ export default function JettyOperatorPage() {
     setGrossJetty('');
     setSearching(true);
     try {
-      const t = await api.searchTrip(searchInput.trim().toUpperCase(), 'in_transit');
+      const t = await api.searchTrip(searchInput.trim().toUpperCase());
       setTrip(t);
     } catch (err) {
       setSearchError(err.message);
@@ -195,7 +195,36 @@ export default function JettyOperatorPage() {
             </div>
           )}
 
-          {trip && !success && (
+          {trip && !success && trip.status === 'completed' && (
+            <div className="stack" style={{ gap: 16 }}>
+              <div className="between">
+                <div className="section-label">Trip selesai - {JETTY[trip.jetty_destination]}</div>
+                <StatusPill status="completed" />
+              </div>
+              <div className="card">
+                <div className="between" style={{ marginBottom: 14 }}>
+                  <div>
+                    <div className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+                      #{trip.no_tiket} - {QUALITY[trip.coal_quality]}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 22 }}>{trip.no_lambung}</div>
+                  </div>
+                  <DestChip dest={trip.jetty_destination} />
+                </div>
+                <InfoGrid
+                  items={[
+                    { label: 'Netto Jetty', value: kg(trip.netto_jetty_kg) },
+                    { label: 'Deviasi', value: `${kg(trip.deviasi_kg)} kg` },
+                    { label: 'Gross Jetty', value: kg(trip.gross_jetty_kg) },
+                    { label: 'Jam Masuk Jetty', value: toWITA(trip.cp3_timestamp) },
+                  ]}
+                />
+              </div>
+              <button type="button" onClick={reset} className="btn btn-ghost">Tutup</button>
+            </div>
+          )}
+
+          {trip && !success && trip.status === 'in_transit' && (
             <div className="stack" style={{ gap: 16 }}>
               <div className="between">
                 <div className="section-label">Timbang ulang - {JETTY[trip.jetty_destination]}</div>
