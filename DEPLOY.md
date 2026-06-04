@@ -209,3 +209,61 @@ sudo -u postgres psql -d hauling_tracker
 select * from users;
 select count(*) from trips;
 ```
+
+---
+
+## Updating the app (subsequent deploys)
+
+### 1. Pull latest code
+```bash
+cd /var/www/hauling && git pull origin main
+```
+
+### 2. Run any new migrations
+```bash
+sudo -u postgres psql -d hauling_tracker < supabase/migrations/008_add_adjustment.sql
+# Run any new migration files added since last deploy
+```
+
+### 3. Fix DB permissions after migrations
+```bash
+sudo -u postgres psql -d hauling_tracker -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hauling_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hauling_user;"
+```
+
+### 4. Rebuild and redeploy frontend
+
+**If using Docker (this server uses Docker on port 3003):**
+```bash
+cd /var/www/hauling && docker compose build frontend && docker compose up -d frontend
+```
+
+**If using nginx + static dist directly:**
+```bash
+cd /var/www/hauling/frontend && npm install && npm run build
+```
+
+### 5. Restart the API
+```bash
+pm2 restart hauling-api
+```
+
+### 6. If nginx isn't running
+```bash
+# Check what's blocking port 80/8080
+ss -tlnp | grep :80
+
+# If another site config in sites-enabled is grabbing a port Docker already uses, disable it:
+rm /etc/nginx/sites-enabled/<conflicting-config>
+
+# Then start nginx
+systemctl start nginx && systemctl enable nginx
+```
+
+> **Note:** This server uses Docker to serve the frontend on port 3003 (not nginx directly).
+> Always use `docker compose build frontend && docker compose up -d frontend` to update the frontend.
+> Accessing the site via `ip:3003` bypasses nginx entirely — make sure you rebuild the Docker image, not just the `dist/` folder.
+
+### Nginx config location on this server
+- Config: `/etc/nginx/conf.d/hauling.conf`
+- Frontend dist: `/var/www/hauling/frontend/dist/`
+- API proxied from: `http://127.0.0.1:3002/`
