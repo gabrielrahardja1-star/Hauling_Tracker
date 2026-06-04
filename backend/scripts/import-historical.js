@@ -127,7 +127,7 @@ async function main() {
                 cuaca_mmi, tare_site_kg, gross_site_kg, netto_site_kg,
                 cp1_timestamp, cp2_timestamp, status)
              values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-             on conflict (date, no_tiket) do nothing`,
+             on conflict (date, no_lambung) do nothing`,
             [
               t.date, t.no_tiket, t.no_lambung, t.jetty_destination,
               t.coal_quality, t.cuaca_mmi, t.tare_site_kg,
