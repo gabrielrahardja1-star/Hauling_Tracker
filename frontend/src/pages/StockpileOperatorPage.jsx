@@ -29,20 +29,22 @@ function scrollContentTop() {
 }
 
 function TodayList({ trips, loading, onRefresh, onSelectPending }) {
+  const { t } = useLang();
   return (
     <TripListCard
-      title="Trip Hari Ini"
-      sub={`${trips.length} truk - diperbarui tiap 30 dtk`}
+      title={t('todayTitle')}
+      sub={`${trips.length} ${t('todaySub')}`}
       trips={trips}
       loading={loading}
       onRefresh={onRefresh}
-      getTap={onSelectPending ? (t) => (t.status === 'pending' ? () => onSelectPending(t) : null) : null}
-      cta="Catat keluar"
+      getTap={onSelectPending ? (tr) => (tr.status === 'pending' ? () => onSelectPending(tr) : null) : null}
+      cta={t('todayCta')}
     />
   );
 }
 
 function CP1Form({ onSuccess }) {
+  const { t } = useLang();
   const [form, setForm] = useState(CP1_INITIAL);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +61,7 @@ function CP1Form({ onSuccess }) {
     setSuccess(null);
     const tare = parseInt(form.tare_site_kg, 10);
     if (!tare || tare <= 0) {
-      setError('Berat tara harus lebih dari 0 kg.');
+      setError(t('cp1TareError'));
       return;
     }
 
@@ -85,13 +87,13 @@ function CP1Form({ onSuccess }) {
   return (
     <div className="stack" style={{ gap: 14 }}>
       {success && (
-        <Banner title="Jam Masuk tercatat">
+        <Banner title={t('cp1BannerTitle')}>
           Tiket #{success.no_tiket} - {success.no_lambung} - Tara {kg(success.tare_site_kg)} kg
         </Banner>
       )}
 
       <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
-        <Field label="No. Lambung Truk">
+        <Field label={t('cp1NoLambung')}>
           <input
             type="text"
             className="input num"
@@ -102,7 +104,7 @@ function CP1Form({ onSuccess }) {
           />
         </Field>
 
-        <Field label="Tujuan Jetty">
+        <Field label={t('cp1JettyDest')}>
           <Segmented
             value={form.jetty_destination}
             onChange={(value) => set('jetty_destination', value)}
@@ -113,30 +115,30 @@ function CP1Form({ onSuccess }) {
           />
         </Field>
 
-        <Field label="Kualitas Batubara">
+        <Field label={t('cp1CoalQuality')}>
           <Segmented
             value={form.coal_quality}
             onChange={(value) => set('coal_quality', value)}
             options={[
-              { value: 'raw', label: 'Raw', sub: 'Mentah' },
-              { value: 'clean', label: 'Clean', sub: 'Bersih' },
+              { value: 'raw', label: t('coalRaw'), sub: t('coalRawSub') },
+              { value: 'clean', label: t('coalClean'), sub: t('coalCleanSub') },
             ]}
           />
         </Field>
 
-        <Field label="Cuaca">
+        <Field label={t('cp1Weather')}>
           <Segmented
             value={form.cuaca_mmi}
             onChange={(value) => set('cuaca_mmi', value)}
             options={[
-              { value: 'Cerah', label: 'Cerah' },
-              { value: 'Berawan', label: 'Berawan' },
-              { value: 'Hujan', label: 'Hujan' },
+              { value: 'Cerah', label: t('weatherCerah') },
+              { value: 'Berawan', label: t('weatherBerawan') },
+              { value: 'Hujan', label: t('weatherHujan') },
             ]}
           />
         </Field>
 
-        <Field label="Berat Kosong" hint="Tara - kg">
+        <Field label={t('cp1TareLabel')} hint={t('cp1TareHint')}>
           <input
             type="text"
             inputMode="numeric"
@@ -156,7 +158,7 @@ function CP1Form({ onSuccess }) {
           ) : (
             <>
               <I.arrowIn width="22" height="22" />
-              Catat Jam Masuk
+              {t('cp1Submit')}
             </>
           )}
         </button>
@@ -166,6 +168,7 @@ function CP1Form({ onSuccess }) {
 }
 
 function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
+  const { t } = useLang();
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -208,7 +211,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
     setSubmitError('');
     const grossKg = parseInt(gross, 10);
     if (!grossKg || grossKg <= 0) {
-      setSubmitError('Berat bruto harus lebih dari 0 kg.');
+      setSubmitError(t('cp2GrossError'));
       return;
     }
 
@@ -241,10 +244,10 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
     <div className="stack" style={{ gap: 14 }}>
       {success && (
         <Banner
-          title="Jam Keluar tercatat"
+          title={t('cp2BannerTitle')}
           action={
             <button type="button" onClick={reset} className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>
-              Selesai
+              {t('cp2Done')}
             </button>
           }
         >
@@ -258,7 +261,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             <input
               type="text"
               className="input num grow"
-              placeholder="Cari no. lambung"
+              placeholder={t('cp2SearchPlaceholder')}
               value={searchInput}
               onChange={(e) => {
                 setSearchInput(e.target.value.toUpperCase());
@@ -276,7 +279,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
       {trip && !success && (
         <div className="stack" style={{ gap: 16 }}>
           <div className="between">
-            <div className="section-label">Detail Trip</div>
+            <div className="section-label">{t('cp2DetailTitle')}</div>
             <StatusPill status="pending" />
           </div>
 
@@ -292,14 +295,14 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             </div>
             <InfoGrid
               items={[
-                { label: 'Tara Site', value: kg(trip.tare_site_kg) },
-                { label: 'Jam Masuk', value: toWITA(trip.cp1_timestamp) },
+                { label: t('cp2TareSiteLabel'), value: kg(trip.tare_site_kg) },
+                { label: t('cp2JamMasukLabel'), value: toWITA(trip.cp1_timestamp) },
               ]}
             />
           </div>
 
           <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
-            <Field label="Berat Isi" hint="Bruto - kg">
+            <Field label={t('cp2GrossLabel')} hint={t('cp2GrossHint')}>
               <input
                 type="text"
                 inputMode="numeric"
@@ -317,7 +320,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             {netPreview !== null && (
               <div className="card" style={{ padding: '14px 16px' }}>
                 <div className="between">
-                  <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Netto Muatan</span>
+                  <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp2NettoLabel')}</span>
                   <Weight value={netPreview} accent={netPreview > 0} />
                 </div>
               </div>
@@ -327,10 +330,10 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
 
             <div className="row" style={{ gap: 10 }}>
               <button type="button" onClick={reset} className="btn btn-ghost grow" style={{ width: 'auto' }}>
-                Batal
+                {t('cp2Cancel')}
               </button>
               <button type="submit" className="btn btn-accent grow" style={{ width: 'auto' }} disabled={submitting || !(netPreview > 0)}>
-                {submitting ? <Spinner className="h-5 w-5" /> : <><I.arrowOut width="20" height="20" /> Jam Keluar</>}
+                {submitting ? <Spinner className="h-5 w-5" /> : <><I.arrowOut width="20" height="20" /> {t('cp2Submit')}</>}
               </button>
             </div>
           </form>
@@ -339,10 +342,10 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
 
       {!trip && !success && (
         <>
-          <div className="section-label">Pilih truk yang akan keluar</div>
+          <div className="section-label">{t('cp2PickPrompt')}</div>
           <TripListCard
-            title="Menunggu Keluar"
-            sub={`${pendingTrips.length} truk di stockpile`}
+            title={t('cp2WaitingTitle')}
+            sub={`${pendingTrips.length} ${t('cp2WaitingSub')}`}
             trips={pendingTrips}
             loading={tripsLoading}
             getTap={(t) => () => selectTrip(t)}

@@ -83,7 +83,14 @@ export const translations = {
 
     // Coal quality
     coalClean: 'Clean',
+    coalCleanSub: 'Bersih',
     coalRaw: 'Raw',
+    coalRawSub: 'Mentah',
+
+    // Weather
+    weatherCerah: 'Cerah',
+    weatherBerawan: 'Berawan',
+    weatherHujan: 'Hujan',
 
     // Stockpile tabs
     tabMasuk: 'Masuk',
@@ -98,13 +105,36 @@ export const translations = {
 
     // CP1 Form
     cp1Title: 'Catat Kedatangan',
-    cp1NoLambung: 'No. Lambung',
+    cp1NoLambung: 'No. Lambung Truk',
     cp1JettyDest: 'Tujuan Jetty',
     cp1CoalQuality: 'Kualitas Batubara',
-    cp1Weather: 'Cuaca MMI',
-    cp1TareSite: 'Tare Site (kg)',
-    cp1Submit: 'Catat Masuk',
-    cp1Success: 'Truk tercatat masuk',
+    cp1Weather: 'Cuaca',
+    cp1TareLabel: 'Berat Kosong',
+    cp1TareHint: 'Tara - kg',
+    cp1TareError: 'Berat tara harus lebih dari 0 kg.',
+    cp1Submit: 'Catat Jam Masuk',
+    cp1BannerTitle: 'Jam Masuk tercatat',
+
+    // CP2 Form
+    cp2BannerTitle: 'Jam Keluar tercatat',
+    cp2Done: 'Selesai',
+    cp2SearchPlaceholder: 'Cari no. lambung',
+    cp2DetailTitle: 'Detail Trip',
+    cp2TareSiteLabel: 'Tara Site',
+    cp2JamMasukLabel: 'Jam Masuk',
+    cp2GrossLabel: 'Berat Isi',
+    cp2GrossHint: 'Bruto - kg',
+    cp2GrossError: 'Berat bruto harus lebih dari 0 kg.',
+    cp2NettoLabel: 'Netto Muatan',
+    cp2Cancel: 'Batal',
+    cp2Submit: 'Jam Keluar',
+    cp2PickPrompt: 'Pilih truk yang akan keluar',
+    cp2WaitingTitle: 'Menunggu Keluar',
+    cp2WaitingSub: 'truk di stockpile',
+
+    // Today list
+    todaySub: 'truk - diperbarui tiap 30 dtk',
+    todayCta: 'Catat keluar',
 
     // CP2 Form
     cp2Title: 'Catat Keberangkatan',
@@ -284,7 +314,14 @@ export const translations = {
 
     // Coal quality
     coalClean: '精煤',
+    coalCleanSub: '精煤',
     coalRaw: '原煤',
+    coalRawSub: '原煤',
+
+    // Weather
+    weatherCerah: '晴天',
+    weatherBerawan: '多云',
+    weatherHujan: '雨天',
 
     // Stockpile tabs
     tabMasuk: '进场',
@@ -304,14 +341,37 @@ export const translations = {
     cp1CoalQuality: '煤炭品质',
     cp1Weather: '天气',
     cp1TareSite: '皮重 (kg)',
-    cp1Submit: '记录进场',
+    cp1TareLabel: '皮重',
+    cp1TareHint: '皮重 - kg',
+    cp1TareError: '皮重必须大于 0 kg',
+    cp1Submit: '记录进场时间',
     cp1Success: '车辆已记录进场',
+    cp1BannerTitle: '进场时间已记录',
+    cp1NoLambung: '车辆编号',
 
     // CP2 Form
     cp2Title: '记录出场',
     cp2GrossSite: '毛重 (kg)',
-    cp2Submit: '记录出场',
+    cp2Submit: '记录出场时间',
     cp2Success: '车辆已记录出场',
+    cp2BannerTitle: '出场时间已记录',
+    cp2Done: '完成',
+    cp2SearchPlaceholder: '搜索车辆编号',
+    cp2DetailTitle: '行程详情',
+    cp2TareSiteLabel: '皮重',
+    cp2JamMasukLabel: '进场时间',
+    cp2GrossLabel: '载重',
+    cp2GrossHint: '毛重 - kg',
+    cp2GrossError: '毛重必须大于 0 kg',
+    cp2NettoLabel: '净重',
+    cp2Cancel: '取消',
+    cp2PickPrompt: '选择要出场的车辆',
+    cp2WaitingTitle: '等待出场',
+    cp2WaitingSub: '辆车在现场',
+
+    // Today list
+    todaySub: '辆 - 每30秒刷新',
+    todayCta: '记录出场',
 
     // CP3 Form
     cp3Title: '码头称重',
