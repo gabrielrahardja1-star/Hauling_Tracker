@@ -209,7 +209,7 @@ export const translations = {
     backToHome: '返回主页',
 
     // Roles
-    roleStockpile: '堆场操作员',
+    roleStockpile: '现场操作员',
     roleJetty: '码头操作员',
     roleAdmin: '管理员',
     roleAnalytics: '数据分析',
@@ -225,7 +225,7 @@ export const translations = {
     // Nav / Admin actions
     navUsers: '用户',
     navAnalytics: '数据分析',
-    navStockpile: '堆场',
+    navStockpile: '现场',
     navJetty: '码头',
     navExport: '导出 .xlsx',
 
@@ -238,8 +238,8 @@ export const translations = {
     allStatuses: '所有状态',
 
     // KPI cards
-    grossSite: '堆场毛重',
-    nettoSite: '堆场净重',
+    grossSite: '现场毛重',
+    nettoSite: '现场净重',
     grossJetty: '码头毛重',
     nettoJetty: '码头净重',
     bargeLoading: '驳船装载量',
@@ -253,8 +253,8 @@ export const translations = {
     colCoal: '煤质',
     colWeather: '天气',
     colTareSite: '皮重',
-    colGrossSite: '堆场毛重',
-    colNettoSite: '堆场净重',
+    colGrossSite: '现场毛重',
+    colNettoSite: '现场净重',
     colCP1: 'CP1',
     colGrossJetty: '码头毛重',
     colNettoJetty: '码头净重',
@@ -278,7 +278,7 @@ export const translations = {
     statusPending: '待处理',
     statusInTransit: '运输中',
     statusCompleted: '已完成',
-    statusPendingLong: '在堆场',
+    statusPendingLong: '在现场',
     statusInTransitLong: '运输中',
     statusCompletedLong: '已完成',
 
@@ -358,7 +358,7 @@ export const translations = {
     analyticsBarged: '装船量',
     analyticsBalance: '结余',
     analyticsPerJetty: '各码头',
-    analyticsNettoSite: '堆场净重',
+    analyticsNettoSite: '现场净重',
     analyticsNettoJetty: '码头净重',
     analyticsHauledLabel: '运输量',
     analyticsDaily: '日报',
@@ -381,7 +381,7 @@ export const translations = {
     monitoringSLALabel: 'SLA 运输 >4小时',
     monitoringNoData: '无违规记录。',
     monitoringTruck: '车辆',
-    monitoringNettoSite: '堆场净重',
+    monitoringNettoSite: '现场净重',
     monitoringNettoJetty: '码头净重',
     monitoringDevLabel: '偏差',
     monitoringKeluar: '离场时间',
