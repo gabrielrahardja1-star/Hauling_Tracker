@@ -81,6 +81,12 @@ export const translations = {
     statusInTransitLong: 'Perjalanan',
     statusCompletedLong: 'Selesai',
 
+    // Trip row meta
+    tripTara: 'Tara',
+    tripNettoSite: 'Netto site',
+    tripNetto: 'Netto',
+    tripDev: 'dev',
+
     // Coal quality
     coalClean: 'Clean',
     coalCleanSub: 'Bersih',
@@ -135,6 +141,43 @@ export const translations = {
     // Today list
     todaySub: 'truk - diperbarui tiap 30 dtk',
     todayCta: 'Catat keluar',
+
+    // Barge panel
+    bargeBannerTitle: 'Loading barge tercatat',
+    bargeAddSection: 'Tambah Loading Barge',
+    bargePickJetty: 'Pilih jetty…',
+    bargeLoadingDate: 'Tanggal Loading',
+    bargeQtyError: 'Qty harus lebih dari 0 kg.',
+    bargeTotal: 'Total',
+
+    // CP3 form
+    cp3BannerTitle: 'Timbang jetty selesai',
+    cp3Done: 'Selesai',
+    cp3SearchPlaceholder: 'Cari no. lambung',
+    cp3CompletedSection: 'Trip selesai - ',
+    cp3InTransitSection: 'Timbang ulang - ',
+    cp3NettoJetty: 'Netto Jetty',
+    cp3Deviasi: 'Deviasi',
+    cp3GrossJetty: 'Gross Jetty',
+    cp3JamMasukJetty: 'Jam Masuk Jetty',
+    cp3Close: 'Tutup',
+    cp3NettoSite: 'Netto Site',
+    cp3GrossSite: 'Gross Site',
+    cp3JamMasuk: 'Jam Masuk',
+    cp3JamKeluar: 'Jam Keluar',
+    cp3GrossLabel: 'Berat Isi di',
+    cp3GrossHint: 'Bruto - kg',
+    cp3GrossError: 'Berat bruto jetty harus lebih dari 0 kg.',
+    cp3DeviasVsSite: 'Deviasi vs site',
+    cp3CompareGross: 'Compare Gross',
+    cp3Cancel: 'Batal',
+    cp3Submit: 'Selesai',
+    cp3QueueSection: 'Truk dalam perjalanan ke jetty',
+    cp3QueueTitle: 'Antrian Timbang',
+    cp3QueueSub: 'truk menuju jetty',
+    cp3Weigh: 'Timbang',
+    cp3TripsSub: 'truk -',
+    cp3TripsInTransit: 'perjalanan',
 
     // CP2 Form
     cp2Title: 'Catat Keberangkatan',
@@ -312,6 +355,12 @@ export const translations = {
     statusInTransitLong: '运输中',
     statusCompletedLong: '已完成',
 
+    // Trip row meta
+    tripTara: '皮重',
+    tripNettoSite: '现场净重',
+    tripNetto: '净重',
+    tripDev: '偏差',
+
     // Coal quality
     coalClean: '精煤',
     coalCleanSub: '精煤',
@@ -388,13 +437,48 @@ export const translations = {
 
     // Barge panel
     bargeTitle: '记录驳船装载',
+    bargeBannerTitle: '驳船装载已记录',
+    bargeAddSection: '添加驳船装载',
+    bargePickJetty: '选择码头…',
+    bargeLoadingDate: '装载日期',
     bargeName: '驳船名称',
     tugBoat: '拖轮名称',
     loadingDate: '装载日期',
-    loadingQty: '装载量 (kg)',
+    loadingQty: '装载量',
+    bargeQtyError: '装载量必须大于 0 kg',
     bargeSubmit: '保存',
     bargeHistory: '装载历史',
     bargeEmpty: '暂无装载数据',
+    bargeTotal: '合计',
+
+    // CP3 form
+    cp3BannerTitle: '码头称重完成',
+    cp3Done: '完成',
+    cp3SearchPlaceholder: '搜索车辆编号',
+    cp3CompletedSection: '行程完成 - ',
+    cp3InTransitSection: '称重 - ',
+    cp3NettoJetty: '码头净重',
+    cp3Deviasi: '偏差',
+    cp3GrossJetty: '码头毛重',
+    cp3JamMasukJetty: '到港时间',
+    cp3Close: '关闭',
+    cp3NettoSite: '现场净重',
+    cp3GrossSite: '现场毛重',
+    cp3JamMasuk: '进场时间',
+    cp3JamKeluar: '出场时间',
+    cp3GrossLabel: '码头载重',
+    cp3GrossHint: '毛重 - kg',
+    cp3GrossError: '码头毛重必须大于 0 kg',
+    cp3DeviasVsSite: '与现场偏差',
+    cp3CompareGross: '毛重对比',
+    cp3Cancel: '取消',
+    cp3Submit: '完成',
+    cp3QueueSection: '前往码头的车辆',
+    cp3QueueTitle: '称重队列',
+    cp3QueueSub: '辆车前往码头',
+    cp3Weigh: '称重',
+    cp3TripsSub: '辆 -',
+    cp3TripsInTransit: '辆运输中',
 
     // Export panel
     exportTitle: '下载数据',

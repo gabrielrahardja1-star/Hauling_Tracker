@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Spinner from './Spinner';
+import { useLang } from '../hooks/useLang';
 
 const WITA_OPTS = { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false };
 
@@ -225,13 +226,18 @@ export function SyncChip({ online = true, compact = false }) {
   );
 }
 
+const STATUS_CLS = { pending: 'st-pending', in_transit: 'st-transit', completed: 'st-done' };
+const STATUS_KEY = { pending: 'statusPending', in_transit: 'statusInTransit', completed: 'statusCompleted' };
+const STATUS_KEY_LONG = { pending: 'statusPendingLong', in_transit: 'statusInTransitLong', completed: 'statusCompletedLong' };
+
 export function StatusPill({ status, short = false }) {
-  const map = short ? STATUS_SHORT : STATUS;
-  const s = map[status] || { cls: 'st-pending', label: status };
+  const { t } = useLang();
+  const cls = STATUS_CLS[status] || 'st-pending';
+  const label = t((short ? STATUS_KEY : STATUS_KEY_LONG)[status] || status) || status;
   return (
-    <span className={`status-pill ${s.cls}`}>
+    <span className={`status-pill ${cls}`}>
       <span className="dot" />
-      {s.label}
+      {label}
     </span>
   );
 }
@@ -308,6 +314,7 @@ export function InfoGrid({ items }) {
 }
 
 export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
+  const { t } = useLang();
   const tappable = !!onTap;
   const El = tappable ? 'button' : 'div';
   const timeValue = time === 'cp2' ? trip.cp2_timestamp : time === 'cp3' ? trip.cp3_timestamp : trip.cp1_timestamp;
@@ -328,15 +335,15 @@ export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
         <span className="tr-sub">
           {trip.status === 'pending' ? (
             <>
-              Tara <b>{kg(trip.tare_site_kg)}</b> kg
+              {t('tripTara')} <b>{kg(trip.tare_site_kg)}</b> kg
             </>
           ) : trip.status === 'in_transit' ? (
             <>
-              Netto site <b>{kg(trip.netto_site_kg)}</b> kg
+              {t('tripNettoSite')} <b>{kg(trip.netto_site_kg)}</b> kg
             </>
           ) : (
             <>
-              Netto <b>{kg(trip.netto_jetty_kg)}</b> kg, dev {kg(trip.deviasi_kg)}
+              {t('tripNetto')} <b>{kg(trip.netto_jetty_kg)}</b> kg, {t('tripDev')} {kg(trip.deviasi_kg)}
             </>
           )}
         </span>

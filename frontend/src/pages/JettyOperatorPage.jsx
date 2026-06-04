@@ -26,6 +26,7 @@ import { api } from '../lib/api';
 const BARGE_INITIAL = { jetty: '', barge_name: '', tug_boat_name: '', loading_date: witaToday(), loading_qty_kg: '' };
 
 function BargePanel({ defaultJetty }) {
+  const { t } = useLang();
   const [form, setForm] = useState({ ...BARGE_INITIAL, jetty: defaultJetty || '' });
   const [loadings, setLoadings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +55,7 @@ function BargePanel({ defaultJetty }) {
     setError('');
     setSuccess(null);
     const qty = parseInt(form.loading_qty_kg, 10);
-    if (!qty || qty <= 0) { setError('Qty harus lebih dari 0 kg.'); return; }
+    if (!qty || qty <= 0) { setError(t('bargeQtyError')); return; }
     setSubmitting(true);
     try {
       const created = await api.createBargeLoading({ ...form, loading_qty_kg: qty });
@@ -75,43 +76,43 @@ function BargePanel({ defaultJetty }) {
   return (
     <div className="stack" style={{ gap: 14 }}>
       {success && (
-        <Banner title="Loading barge tercatat">
+        <Banner title={t('bargeBannerTitle')}>
           {success.barge_name} / {success.tug_boat_name} — {kg(success.loading_qty_kg)} kg — {JETTY[success.jetty]}
         </Banner>
       )}
 
       <div className="card">
-        <div className="section-label" style={{ marginBottom: 14 }}>Tambah Loading Barge</div>
+        <div className="section-label" style={{ marginBottom: 14 }}>{t('bargeAddSection')}</div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 12 }}>
-          <Field label="Jetty">
+          <Field label={t('filterJetty')}>
             <select className="input" value={form.jetty} onChange={(e) => set('jetty', e.target.value)} required>
-              <option value="">Pilih jetty…</option>
+              <option value="">{t('bargePickJetty')}</option>
               <option value="hasnur">Hasnur</option>
               <option value="talenta">Talenta</option>
             </select>
           </Field>
-          <Field label="Tanggal Loading">
+          <Field label={t('bargeLoadingDate')}>
             <input type="date" className="input" value={form.loading_date} onChange={(e) => set('loading_date', e.target.value)} required />
           </Field>
-          <Field label="Nama Barge">
-            <input type="text" className="input" placeholder="Contoh: TAMA 2238" value={form.barge_name} onChange={(e) => set('barge_name', e.target.value.toUpperCase())} required />
+          <Field label={t('bargeName')}>
+            <input type="text" className="input" placeholder="TAMA 2238" value={form.barge_name} onChange={(e) => set('barge_name', e.target.value.toUpperCase())} required />
           </Field>
-          <Field label="Nama Tug Boat">
-            <input type="text" className="input" placeholder="Contoh: PRIMA 3330" value={form.tug_boat_name} onChange={(e) => set('tug_boat_name', e.target.value.toUpperCase())} required />
+          <Field label={t('tugBoat')}>
+            <input type="text" className="input" placeholder="PRIMA 3330" value={form.tug_boat_name} onChange={(e) => set('tug_boat_name', e.target.value.toUpperCase())} required />
           </Field>
-          <Field label="Qty Loading" hint="kg">
+          <Field label={t('loadingQty')} hint="kg">
             <input type="text" inputMode="numeric" className="input num" placeholder="0" value={form.loading_qty_kg} onChange={(e) => set('loading_qty_kg', e.target.value.replace(/\D/g, ''))} required />
           </Field>
           {error && <div className="alert">{error}</div>}
           <button type="submit" className="btn btn-accent" disabled={submitting || !valid}>
-            {submitting ? <Spinner className="h-5 w-5" /> : <><I.anchor width="18" height="18" /> Simpan</>}
+            {submitting ? <Spinner className="h-5 w-5" /> : <><I.anchor width="18" height="18" /> {t('bargeSubmit')}</>}
           </button>
         </form>
       </div>
 
       <div className="card">
         <div className="between" style={{ marginBottom: 12 }}>
-          <div className="section-label">Riwayat Loading</div>
+          <div className="section-label">{t('bargeHistory')}</div>
           <button type="button" onClick={fetchLoadings} className="btn btn-ghost btn-sm">
             <I.refresh width="16" height="16" />
           </button>
@@ -119,7 +120,7 @@ function BargePanel({ defaultJetty }) {
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spinner className="h-6 w-6" /></div>
         ) : loadings.length === 0 ? (
-          <div className="muted" style={{ textAlign: 'center', padding: 16, fontSize: 14 }}>Belum ada data loading barge.</div>
+          <div className="muted" style={{ textAlign: 'center', padding: 16, fontSize: 14 }}>{t('bargeEmpty')}</div>
         ) : (
           <>
             {loadings.map((l) => (
@@ -134,7 +135,7 @@ function BargePanel({ defaultJetty }) {
               </div>
             ))}
             <div className="between" style={{ paddingTop: 10, marginTop: 4 }}>
-              <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>Total</span>
+              <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>{t('bargeTotal')}</span>
               <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 16 }}>{kg(totalQty)} kg</span>
             </div>
           </>
@@ -214,7 +215,7 @@ export default function JettyOperatorPage() {
     setSubmitError('');
     const grossKg = parseInt(grossJetty, 10);
     if (!grossKg || grossKg <= 0) {
-      setSubmitError('Berat bruto jetty harus lebih dari 0 kg.');
+      setSubmitError(t('cp3GrossError'));
       return;
     }
 
@@ -277,14 +278,14 @@ export default function JettyOperatorPage() {
 
       {tab === 'trips' && (
         <TripListCard
-          title="Trip Hari Ini"
-          sub={`${displayTrips.length} truk - ${inTransitCount} perjalanan`}
+          title={t('todayTitle')}
+          sub={`${displayTrips.length} ${t('cp3TripsSub')} ${inTransitCount} ${t('cp3TripsInTransit')}`}
           trips={displayTrips}
           loading={tripsLoading}
           right={filterControl}
           onRefresh={fetchTrips}
-          getTap={(t) => (t.status === 'in_transit' ? () => selectTrip(t) : null)}
-          cta="Timbang"
+          getTap={(tr) => (tr.status === 'in_transit' ? () => selectTrip(tr) : null)}
+          cta={t('cp3Weigh')}
         />
       )}
 
@@ -292,14 +293,14 @@ export default function JettyOperatorPage() {
         <div className="stack" style={{ gap: 14 }}>
           {success && (
             <Banner
-              title="Timbang jetty selesai"
+              title={t('cp3BannerTitle')}
               action={
                 <button type="button" onClick={reset} className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>
-                  Selesai
+                  {t('cp3Done')}
                 </button>
               }
             >
-              {success.no_lambung} - Netto jetty {kg(success.netto_jetty_kg)} kg - Deviasi {kg(success.deviasi_kg)} kg
+              {success.no_lambung} - {t('cp3NettoJetty')} {kg(success.netto_jetty_kg)} kg - {t('cp3Deviasi')} {kg(success.deviasi_kg)} kg
             </Banner>
           )}
 
@@ -309,7 +310,7 @@ export default function JettyOperatorPage() {
                 <input
                   type="text"
                   className="input num grow"
-                  placeholder="Cari no. lambung"
+                  placeholder={t('cp3SearchPlaceholder')}
                   value={searchInput}
                   onChange={(e) => {
                     setSearchInput(e.target.value.toUpperCase());
@@ -327,7 +328,7 @@ export default function JettyOperatorPage() {
           {trip && !success && trip.status === 'completed' && (
             <div className="stack" style={{ gap: 16 }}>
               <div className="between">
-                <div className="section-label">Trip selesai - {JETTY[trip.jetty_destination]}</div>
+                <div className="section-label">{t('cp3CompletedSection')}{JETTY[trip.jetty_destination]}</div>
                 <StatusPill status="completed" />
               </div>
               <div className="card">
@@ -342,21 +343,21 @@ export default function JettyOperatorPage() {
                 </div>
                 <InfoGrid
                   items={[
-                    { label: 'Netto Jetty', value: kg(trip.netto_jetty_kg) },
-                    { label: 'Deviasi', value: `${kg(trip.deviasi_kg)} kg` },
-                    { label: 'Gross Jetty', value: kg(trip.gross_jetty_kg) },
-                    { label: 'Jam Masuk Jetty', value: toWITA(trip.cp3_timestamp) },
+                    { label: t('cp3NettoJetty'), value: kg(trip.netto_jetty_kg) },
+                    { label: t('cp3Deviasi'), value: `${kg(trip.deviasi_kg)} kg` },
+                    { label: t('cp3GrossJetty'), value: kg(trip.gross_jetty_kg) },
+                    { label: t('cp3JamMasukJetty'), value: toWITA(trip.cp3_timestamp) },
                   ]}
                 />
               </div>
-              <button type="button" onClick={reset} className="btn btn-ghost">Tutup</button>
+              <button type="button" onClick={reset} className="btn btn-ghost">{t('cp3Close')}</button>
             </div>
           )}
 
           {trip && !success && trip.status === 'in_transit' && (
             <div className="stack" style={{ gap: 16 }}>
               <div className="between">
-                <div className="section-label">Timbang ulang - {JETTY[trip.jetty_destination]}</div>
+                <div className="section-label">{t('cp3InTransitSection')}{JETTY[trip.jetty_destination]}</div>
                 <StatusPill status="in_transit" />
               </div>
 
@@ -372,16 +373,16 @@ export default function JettyOperatorPage() {
                 </div>
                 <InfoGrid
                   items={[
-                    { label: 'Netto Site', value: kg(trip.netto_site_kg) },
-                    { label: 'Gross Site', value: kg(trip.gross_site_kg) },
-                    { label: 'Jam Masuk', value: toWITA(trip.cp1_timestamp) },
-                    { label: 'Jam Keluar', value: toWITA(trip.cp2_timestamp) },
+                    { label: t('cp3NettoSite'), value: kg(trip.netto_site_kg) },
+                    { label: t('cp3GrossSite'), value: kg(trip.gross_site_kg) },
+                    { label: t('cp3JamMasuk'), value: toWITA(trip.cp1_timestamp) },
+                    { label: t('cp3JamKeluar'), value: toWITA(trip.cp2_timestamp) },
                   ]}
                 />
               </div>
 
               <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
-                <Field label={`Berat Isi di ${JETTY[trip.jetty_destination]}`} hint="Bruto - kg">
+                <Field label={`${t('cp3GrossLabel')} ${JETTY[trip.jetty_destination]}`} hint={t('cp3GrossHint')}>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -399,17 +400,17 @@ export default function JettyOperatorPage() {
                 {preview && (
                   <div className="card" style={{ padding: 14 }}>
                     <div className="between" style={{ marginBottom: 8 }}>
-                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Netto Jetty</span>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3NettoJetty')}</span>
                       <Weight value={preview.netto_jetty} accent />
                     </div>
                     <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Deviasi vs site</span>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3DeviasVsSite')}</span>
                       <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.deviasi < 0 ? 'var(--danger)' : 'var(--st-transit-fg)' }}>
                         {preview.deviasi > 0 ? '+' : ''}{kg(preview.deviasi)} kg
                       </span>
                     </div>
                     <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
-                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>Compare Gross</span>
+                      <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareGross')}</span>
                       <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{kg(preview.compare_gross)} kg</span>
                     </div>
                   </div>
@@ -419,10 +420,10 @@ export default function JettyOperatorPage() {
 
                 <div className="row" style={{ gap: 10 }}>
                   <button type="button" onClick={reset} className="btn btn-ghost grow" style={{ width: 'auto' }}>
-                    Batal
+                    {t('cp3Cancel')}
                   </button>
                   <button type="submit" className="btn btn-accent grow" style={{ width: 'auto' }} disabled={submitting || !(g > 0)}>
-                    {submitting ? <Spinner className="h-5 w-5" /> : <><I.scale width="20" height="20" /> Selesai</>}
+                    {submitting ? <Spinner className="h-5 w-5" /> : <><I.scale width="20" height="20" /> {t('cp3Submit')}</>}
                   </button>
                 </div>
               </form>
@@ -431,16 +432,16 @@ export default function JettyOperatorPage() {
 
           {!trip && !success && (
             <>
-              <div className="section-label">Truk dalam perjalanan ke jetty</div>
+              <div className="section-label">{t('cp3QueueSection')}</div>
               <TripListCard
-                title="Antrian Timbang"
-                sub={`${inTransitCount} truk menuju jetty`}
+                title={t('cp3QueueTitle')}
+                sub={`${inTransitCount} ${t('cp3QueueSub')}`}
                 trips={displayTrips}
                 loading={tripsLoading}
                 right={filterControl}
                 onRefresh={fetchTrips}
-                getTap={(t) => (t.status === 'in_transit' ? () => selectTrip(t) : null)}
-                cta="Timbang"
+                getTap={(tr) => (tr.status === 'in_transit' ? () => selectTrip(tr) : null)}
+                cta={t('cp3Weigh')}
               />
             </>
           )}
