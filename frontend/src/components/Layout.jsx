@@ -7,8 +7,17 @@ const ROLE_LABELS = {
   admin: 'Admin',
 };
 
+const ROLE_HOME = {
+  admin: '/admin',
+  analytics: '/analytics',
+  stockpile_operator: '/stockpile',
+  jetty_operator: '/jetty',
+};
+
 export default function Layout({ children, title, kicker, footer, wide = false }) {
   const { role, signOut } = useAuth();
+  const home = ROLE_HOME[role];
+  const isHome = home && window.location.pathname === home;
 
   return (
     <div className="app-shell" data-direction="b" data-theme="light" data-density="regular">
@@ -26,6 +35,11 @@ export default function Layout({ children, title, kicker, footer, wide = false }
               <LiveTime />
             </div>
             <SyncChip online compact />
+            {home && !isHome && (
+              <IconButton label="Kembali ke Home" onClick={() => window.location.href = home}>
+                <I.arrowLeft width="18" height="18" />
+              </IconButton>
+            )}
             <IconButton label="Keluar" onClick={signOut}>
               <I.logout width="18" height="18" />
             </IconButton>

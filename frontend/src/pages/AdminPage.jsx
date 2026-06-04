@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import {
@@ -6,12 +6,14 @@ import {
   I,
   IconButton,
   StatCard,
+  SortTh,
   StatusPill,
   kg,
   toWITA,
   witaToday,
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
+import { useSortFilter } from '../lib/useSortFilter';
 
 function EditCell({ value, type = 'text', options, onSave }) {
   const [editing, setEditing] = useState(false);
@@ -104,6 +106,7 @@ function UserModal({ onClose }) {
     stockpile_operator: 'Stockpile Operator',
     jetty_operator: 'Jetty Operator',
     admin: 'Admin',
+    analytics: 'Analytics',
   };
 
   return (
@@ -132,6 +135,7 @@ function UserModal({ onClose }) {
                 <option value="stockpile_operator">Stockpile Operator</option>
                 <option value="jetty_operator">Jetty Operator</option>
                 <option value="admin">Admin</option>
+                <option value="analytics">Analytics</option>
               </select>
             </Field>
             {error && <div className="alert">{error}</div>}
@@ -177,6 +181,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
+  const [bargeDayTotal, setBargeDayTotal] = useState(0);
+  const [cumulativeBargeTotal, setCumulativeBargeTotal] = useState(0);
+  const [cumulativeNettoJetty, setCumulativeNettoJetty] = useState(0);
+  const [tableFullscreen, setTableFullscreen] = useState(false);
+
+  const SEARCH_FIELDS = useMemo(() => ['no_lambung', 'no_tiket', 'jetty_destination', 'coal_quality', 'status', 'cuaca_mmi'], []);
+  const { result: displayTrips, sortKey, sortDir, toggleSort, search, setSearch } = useSortFilter(trips, SEARCH_FIELDS);
 
   const fetchTrips = useCallback(async () => {
     setLoading(true);
@@ -192,6 +203,25 @@ export default function AdminPage() {
       setLoading(false);
     }
   }, [filters]);
+
+  useEffect(() => {
+    const jetty = filters.jetty;
+    const date  = filters.date;
+
+    const dayBargeParams  = { ...(jetty && { jetty }), ...(date && { from: date, to: date }) };
+    const cumBargeParams  = { ...(jetty && { jetty }), ...(date && { to: date }) };
+    const cumTripParams   = { status: 'completed', ...(jetty && { jetty }), ...(date && { date_to: date }) };
+
+    Promise.all([
+      api.listBargeLoadings(dayBargeParams),
+      api.listBargeLoadings(cumBargeParams),
+      api.listTrips(cumTripParams),
+    ]).then(([dayRows, cumBargeRows, tripRows]) => {
+      setBargeDayTotal(dayRows.reduce((s, r) => s + (Number(r.loading_qty_kg) || 0), 0));
+      setCumulativeBargeTotal(cumBargeRows.reduce((s, r) => s + (Number(r.loading_qty_kg) || 0), 0));
+      setCumulativeNettoJetty(tripRows.reduce((s, r) => s + (Number(r.netto_site_kg) || 0), 0));
+    }).catch(() => {});
+  }, [filters.date, filters.jetty]);
 
   useEffect(() => {
     fetchTrips();
@@ -251,6 +281,18 @@ export default function AdminPage() {
           <I.users width="18" height="18" />
           Users
         </button>
+        <a href="/analytics" className="btn btn-ghost">
+          <I.chart width="18" height="18" />
+          Analytics
+        </a>
+        <a href="/stockpile" className="btn btn-ghost">
+          <I.truck width="18" height="18" />
+          Stockpile
+        </a>
+        <a href="/jetty" className="btn btn-ghost">
+          <I.anchor width="18" height="18" />
+          Jetty
+        </a>
         <button onClick={handleExport} disabled={exportLoading || !filters.date || !filters.jetty} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
           {exportLoading ? <Spinner className="h-4 w-4" /> : <I.download width="18" height="18" />}
           Export .xlsx
@@ -281,24 +323,36 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {trips.length > 0 && (
-        <div className="totals-grid">
-          <StatCard label="Gross Site" value={totals.grossSite} />
-          <StatCard label="Netto Site" value={totals.nettoSite} accent />
-          <StatCard label="Gross Jetty" value={totals.grossJetty} />
-          <StatCard label="Netto Jetty" value={totals.nettoJetty} accent />
-        </div>
-      )}
+      <div className="totals-grid">
+        <StatCard label="Gross Site" value={totals.grossSite} />
+        <StatCard label="Netto Site" value={totals.nettoSite} accent />
+        <StatCard label="Gross Jetty" value={totals.grossJetty} />
+        <StatCard label="Netto Jetty" value={totals.nettoJetty} accent />
+        <StatCard label="Barge Loading" value={bargeDayTotal} />
+        <StatCard label="Ending Coal Balance" value={cumulativeNettoJetty - cumulativeBargeTotal} accent />
+      </div>
 
-      <div className="card flush">
+      <div className={tableFullscreen ? 'table-fullscreen-overlay' : 'card flush'}>
         <div className="list-head">
           <div>
             <div className="lh-title">Trips</div>
-            <div className="lh-sub">{trips.length} records</div>
+            <div className="lh-sub">{displayTrips.length} of {trips.length} records</div>
           </div>
-          <IconButton className="icon-muted" label="Segarkan" onClick={fetchTrips}>
-            <I.refresh width="18" height="18" />
-          </IconButton>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              className="input"
+              style={{ width: 200, height: 32, fontSize: 13 }}
+              placeholder="Search truck, status..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <IconButton className="icon-muted" label="Segarkan" onClick={fetchTrips}>
+              <I.refresh width="18" height="18" />
+            </IconButton>
+            <IconButton className="icon-muted" label={tableFullscreen ? 'Exit fullscreen' : 'Fullscreen'} onClick={() => setTableFullscreen((v) => !v)}>
+              {tableFullscreen ? <I.compress width="18" height="18" /> : <I.expand width="18" height="18" />}
+            </IconButton>
+          </div>
         </div>
 
         {loading ? (
@@ -310,13 +364,31 @@ export default function AdminPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  {['#', 'Truck', 'Jetty', 'Status', 'Coal', 'Cuaca', 'Tare Site', 'Gross Site', 'Netto Site', 'CP1', 'Gross Jetty', 'Netto Jetty', 'Comp.Gross', 'Deviasi', 'CP2', 'CP3'].map((h) => (
-                    <th key={h}>{h}</th>
+                  {[
+                    { label: '#',          key: 'no_tiket' },
+                    { label: 'Truck',      key: 'no_lambung' },
+                    { label: 'Jetty',      key: 'jetty_destination' },
+                    { label: 'Status',     key: 'status' },
+                    { label: 'Coal',       key: 'coal_quality' },
+                    { label: 'Cuaca',      key: 'cuaca_mmi' },
+                    { label: 'Tare Site',  key: 'tare_site_kg' },
+                    { label: 'Gross Site', key: 'gross_site_kg' },
+                    { label: 'Netto Site', key: 'netto_site_kg' },
+                    { label: 'CP1',        key: 'cp1_timestamp' },
+                    { label: 'Gross Jetty',key: 'gross_jetty_kg' },
+                    { label: 'Netto Jetty',key: 'netto_jetty_kg' },
+                    { label: 'Comp.Gross', key: 'compare_gross_kg' },
+                    { label: 'Deviasi',    key: 'deviasi_kg' },
+                    { label: 'Adjustment', key: 'adjustment_kg' },
+                    { label: 'CP2',        key: 'cp2_timestamp' },
+                    { label: 'CP3',        key: 'cp3_timestamp' },
+                  ].map(({ label, key }) => (
+                    <SortTh key={key} label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {trips.map((t) => (
+                {displayTrips.map((t) => (
                   <tr key={t.trip_id}>
                     <td><EditCell value={t.no_tiket} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'no_tiket', v)} /></td>
                     <td style={{ fontWeight: 800 }}><EditCell value={t.no_lambung} onSave={(v) => handleFieldUpdate(t.trip_id, 'no_lambung', v)} /></td>
@@ -339,6 +411,7 @@ export default function AdminPage() {
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{kg(t.netto_jetty_kg)}</td>
                     <td style={{ textAlign: 'right' }}>{kg(t.compare_gross_kg)}</td>
                     <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{kg(t.deviasi_kg)}</td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.adjustment_kg ?? 0} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'adjustment_kg', v)} /></td>
                     <td>{toWITA(t.cp2_timestamp)}</td>
                     <td>{toWITA(t.cp3_timestamp)}</td>
                   </tr>

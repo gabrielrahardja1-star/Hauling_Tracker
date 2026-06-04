@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
+import AnalyticsPage from './AnalyticsPage';
 import {
   Banner,
   BottomTabs,
@@ -17,8 +18,130 @@ import {
   elapsed,
   kg,
   toWITA,
+  witaToday,
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
+
+const BARGE_INITIAL = { jetty: '', barge_name: '', tug_boat_name: '', loading_date: witaToday(), loading_qty_kg: '' };
+
+function BargePanel({ defaultJetty }) {
+  const [form, setForm] = useState({ ...BARGE_INITIAL, jetty: defaultJetty || '' });
+  const [loadings, setLoadings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(null);
+
+  const fetchLoadings = useCallback(async () => {
+    setLoading(true);
+    try {
+      setLoadings(await api.listBargeLoadings(form.jetty ? { jetty: form.jetty } : {}));
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, [form.jetty]);
+
+  useEffect(() => { fetchLoadings(); }, [fetchLoadings]);
+
+  function set(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+    setError('');
+    setSuccess(null);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setSuccess(null);
+    const qty = parseInt(form.loading_qty_kg, 10);
+    if (!qty || qty <= 0) { setError('Qty harus lebih dari 0 kg.'); return; }
+    setSubmitting(true);
+    try {
+      const created = await api.createBargeLoading({ ...form, loading_qty_kg: qty });
+      setSuccess(created);
+      setForm((f) => ({ ...BARGE_INITIAL, jetty: f.jetty, loading_date: f.loading_date }));
+      fetchLoadings();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const valid = form.jetty && form.barge_name.trim() && form.tug_boat_name.trim() && form.loading_date && parseInt(form.loading_qty_kg, 10) > 0;
+
+  const totalQty = loadings.reduce((s, l) => s + Number(l.loading_qty_kg), 0);
+
+  return (
+    <div className="stack" style={{ gap: 14 }}>
+      {success && (
+        <Banner title="Loading barge tercatat">
+          {success.barge_name} / {success.tug_boat_name} — {kg(success.loading_qty_kg)} kg — {JETTY[success.jetty]}
+        </Banner>
+      )}
+
+      <div className="card">
+        <div className="section-label" style={{ marginBottom: 14 }}>Tambah Loading Barge</div>
+        <form onSubmit={handleSubmit} className="stack" style={{ gap: 12 }}>
+          <Field label="Jetty">
+            <select className="input" value={form.jetty} onChange={(e) => set('jetty', e.target.value)} required>
+              <option value="">Pilih jetty…</option>
+              <option value="hasnur">Hasnur</option>
+              <option value="talenta">Talenta</option>
+            </select>
+          </Field>
+          <Field label="Tanggal Loading">
+            <input type="date" className="input" value={form.loading_date} onChange={(e) => set('loading_date', e.target.value)} required />
+          </Field>
+          <Field label="Nama Barge">
+            <input type="text" className="input" placeholder="Contoh: TAMA 2238" value={form.barge_name} onChange={(e) => set('barge_name', e.target.value.toUpperCase())} required />
+          </Field>
+          <Field label="Nama Tug Boat">
+            <input type="text" className="input" placeholder="Contoh: PRIMA 3330" value={form.tug_boat_name} onChange={(e) => set('tug_boat_name', e.target.value.toUpperCase())} required />
+          </Field>
+          <Field label="Qty Loading" hint="kg">
+            <input type="text" inputMode="numeric" className="input num" placeholder="0" value={form.loading_qty_kg} onChange={(e) => set('loading_qty_kg', e.target.value.replace(/\D/g, ''))} required />
+          </Field>
+          {error && <div className="alert">{error}</div>}
+          <button type="submit" className="btn btn-accent" disabled={submitting || !valid}>
+            {submitting ? <Spinner className="h-5 w-5" /> : <><I.anchor width="18" height="18" /> Simpan</>}
+          </button>
+        </form>
+      </div>
+
+      <div className="card">
+        <div className="between" style={{ marginBottom: 12 }}>
+          <div className="section-label">Riwayat Loading</div>
+          <button type="button" onClick={fetchLoadings} className="btn btn-ghost btn-sm">
+            <I.refresh width="16" height="16" />
+          </button>
+        </div>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spinner className="h-6 w-6" /></div>
+        ) : loadings.length === 0 ? (
+          <div className="muted" style={{ textAlign: 'center', padding: 16, fontSize: 14 }}>Belum ada data loading barge.</div>
+        ) : (
+          <>
+            {loadings.map((l) => (
+              <div key={l.loading_id} className="between" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{l.barge_name}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>Tug: {l.tug_boat_name} · {JETTY[l.jetty]} · {l.loading_date}</div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 15, textAlign: 'right' }}>
+                  {kg(l.loading_qty_kg)} <span className="muted" style={{ fontSize: 11 }}>kg</span>
+                </div>
+              </div>
+            ))}
+            <div className="between" style={{ paddingTop: 10, marginTop: 4 }}>
+              <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>Total</span>
+              <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 16 }}>{kg(totalQty)} kg</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function scrollContentTop() {
   document.querySelector('.screen')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -124,11 +247,13 @@ export default function JettyOperatorPage() {
 
   const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
   const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
-  const titles = { cp3: 'Timbang Jetty', trips: 'Trip Hari Ini', export: 'Ekspor' };
+  const titles = { cp3: 'Timbang Jetty', trips: 'Trip Hari Ini', barge: 'Loading Barge', export: 'Ekspor' };
   const tabs = [
     { key: 'cp3', label: 'Timbang', icon: I.scale, badge: inTransitCount },
     { key: 'trips', label: 'Trip', icon: I.list },
+    { key: 'barge', label: 'Barge', icon: I.anchor },
     { key: 'export', label: 'Ekspor', icon: I.download },
+    { key: 'analytics', label: 'Analytics', icon: I.chart },
   ];
 
   const filterControl = (
@@ -145,6 +270,8 @@ export default function JettyOperatorPage() {
       footer={<BottomTabs tabs={tabs} active={tab} onChange={setTab} />}
     >
       {tab === 'export' && <ExportPanel />}
+      {tab === 'barge' && <BargePanel defaultJetty={jettyFilter} />}
+      {tab === 'analytics' && <AnalyticsPage embedded />}
 
       {tab === 'trips' && (
         <TripListCard

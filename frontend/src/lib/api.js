@@ -85,4 +85,22 @@ export const api = {
   listUsers:  ()         => request('GET',    '/auth/users'),
   updateUser: (id, data) => request('PATCH',  `/auth/users/${id}`, data),
   deleteUser: (id)       => request('DELETE', `/auth/users/${id}`),
+
+  // Analytics
+  getAnalyticsOverview: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/analytics/overview${q ? `?${q}` : ''}`);
+  },
+  getAnalyticsMonitoring: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/analytics/monitoring${q ? `?${q}` : ''}`);
+  },
+
+  // Barge loadings
+  createBargeLoading: (data) => request('POST', '/barge-loadings', data),
+  listBargeLoadings: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/barge-loadings${q ? `?${q}` : ''}`);
+  },
+  deleteBargeLoading: (id) => request('DELETE', `/barge-loadings/${id}`),
 };

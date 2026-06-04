@@ -46,7 +46,7 @@ router.post('/login', async (req, res) => {
 // POST /auth/users — admin creates a user
 router.post('/users', requireAuth, requireRole('admin'), async (req, res) => {
   const { email, password, role } = req.body;
-  const validRoles = ['stockpile_operator', 'jetty_operator', 'admin'];
+  const validRoles = ['stockpile_operator', 'jetty_operator', 'admin', 'analytics'];
 
   if (!email || !password || !role) {
     return res.status(400).json({ error: 'email, password, and role are required' });

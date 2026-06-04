@@ -26,13 +26,6 @@ router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) =>
   const today = witaDate();
   const lambung = no_lambung.trim().toUpperCase();
 
-  const existing = await queryOne(
-    'select trip_id from trips where date = $1 and no_lambung = $2',
-    [today, lambung]
-  );
-  if (existing) {
-    return res.status(409).json({ error: `Truck ${lambung} already has a trip today` });
-  }
 
   const [trip] = await query(
     `with next_ticket as (
@@ -311,15 +304,16 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
 
 // GET /trips — admin list with filters
 router.get('/', requireRole('admin'), async (req, res) => {
-  const { date, jetty, status } = req.query;
+  const { date, date_to, jetty, status } = req.query;
 
   const conditions = [];
   const values = [];
   let idx = 1;
 
-  if (date)   { conditions.push(`date = $${idx++}`);               values.push(date); }
-  if (jetty)  { conditions.push(`jetty_destination = $${idx++}`);  values.push(jetty); }
-  if (status) { conditions.push(`status = $${idx++}`);             values.push(status); }
+  if (date)    { conditions.push(`date = $${idx++}`);               values.push(date); }
+  if (date_to) { conditions.push(`date <= $${idx++}`);              values.push(date_to); }
+  if (jetty)   { conditions.push(`jetty_destination = $${idx++}`);  values.push(jetty); }
+  if (status)  { conditions.push(`status = $${idx++}`);             values.push(status); }
 
   const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
   const trips = await query(
@@ -366,8 +360,9 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
        netto_jetty_kg   = $14,
        compare_gross_kg = $15,
        deviasi_kg       = $16,
-       cp3_timestamp    = $17
-     where trip_id = $18
+       cp3_timestamp    = $17,
+       adjustment_kg    = $18
+     where trip_id = $19
      returning *`,
     [
       m.date, m.status, m.no_tiket, m.no_lambung,
@@ -375,6 +370,7 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
       m.cp1_timestamp, m.gross_site_kg, m.netto_site_kg, m.cp2_timestamp,
       m.gross_jetty_kg, m.netto_jetty_kg,
       m.compare_gross_kg, m.deviasi_kg, m.cp3_timestamp,
+      m.adjustment_kg ?? 0,
       id,
     ]
   );

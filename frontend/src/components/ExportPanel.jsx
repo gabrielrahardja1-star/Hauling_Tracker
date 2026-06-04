@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Spinner from './Spinner';
-import { Field, I, StatCard, StatusPill, kg, toWITA, witaToday } from './DesignSystem';
+import { Field, I, SortTh, StatCard, StatusPill, kg, toWITA, witaToday } from './DesignSystem';
 import { api } from '../lib/api';
+import { useSortFilter } from '../lib/useSortFilter';
 
 export default function ExportPanel() {
   const [date, setDate] = useState(witaToday());
@@ -46,12 +47,30 @@ export default function ExportPanel() {
     }
   }
 
-  const totals = trips.reduce((acc, t) => ({
+  const SEARCH_FIELDS = useMemo(() => ['no_lambung', 'no_tiket', 'status'], []);
+  const { result: displayTrips, sortKey, sortDir, toggleSort, search, setSearch } = useSortFilter(trips, SEARCH_FIELDS);
+
+  const totals = displayTrips.reduce((acc, t) => ({
     tare: acc.tare + (t.tare_site_kg || 0),
     gross_site: acc.gross_site + (t.gross_site_kg || 0),
     netto_site: acc.netto_site + (t.netto_site_kg || 0),
     netto_jetty: acc.netto_jetty + (t.netto_jetty_kg || 0),
   }), { tare: 0, gross_site: 0, netto_site: 0, netto_jetty: 0 });
+
+  const COLS = [
+    { label: '#',          key: 'no_tiket' },
+    { label: 'Truck',      key: 'no_lambung' },
+    { label: 'Status',     key: 'status' },
+    { label: 'Tare',       key: 'tare_site_kg' },
+    { label: 'Gross Site', key: 'gross_site_kg' },
+    { label: 'Netto Site', key: 'netto_site_kg' },
+    { label: 'Gross Jetty',key: 'gross_jetty_kg' },
+    { label: 'Netto Jetty',key: 'netto_jetty_kg' },
+    { label: 'Deviasi',    key: 'deviasi_kg' },
+    { label: 'Masuk',      key: 'cp1_timestamp' },
+    { label: 'Keluar',     key: 'cp2_timestamp' },
+    { label: 'Jetty',      key: 'cp3_timestamp' },
+  ];
 
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -93,11 +112,20 @@ export default function ExportPanel() {
         <div className="list-head">
           <div>
             <div className="lh-title">{jetty === 'hasnur' ? 'Hasnur' : 'Talenta'} - {date}</div>
-            <div className="lh-sub">{trips.length} truk</div>
+            <div className="lh-sub">{displayTrips.length} of {trips.length} truk</div>
           </div>
-          <button onClick={fetchTrips} className="ah-icon-btn icon-muted" aria-label="Segarkan" title="Segarkan">
-            <I.refresh width="18" height="18" />
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              className="input"
+              style={{ width: 180, height: 32, fontSize: 13 }}
+              placeholder="Search truck..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button onClick={fetchTrips} className="ah-icon-btn icon-muted" aria-label="Segarkan" title="Segarkan">
+              <I.refresh width="18" height="18" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -111,13 +139,13 @@ export default function ExportPanel() {
             <table className="data-table">
               <thead>
                 <tr>
-                  {['#', 'Truck', 'Status', 'Tare', 'Gross Site', 'Netto Site', 'Gross Jetty', 'Netto Jetty', 'Deviasi', 'Masuk', 'Keluar', 'Jetty'].map((h) => (
-                    <th key={h}>{h}</th>
+                  {COLS.map(({ label, key }) => (
+                    <SortTh key={key} label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={toggleSort} />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {trips.map((t) => (
+                {displayTrips.map((t) => (
                   <tr key={t.trip_id}>
                     <td>{t.no_tiket}</td>
                     <td style={{ fontWeight: 800 }}>{t.no_lambung}</td>

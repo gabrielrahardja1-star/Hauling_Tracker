@@ -183,7 +183,7 @@
 .screen {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   padding: calc(16px * var(--pad)) 16px calc(30px * var(--pad));
   display: flex;
   flex-direction: column;
@@ -895,6 +895,23 @@
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.table-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-fullscreen-overlay .table-wrap {
+  flex: 1;
+  max-height: none;
 }
 
 .data-table {
@@ -912,6 +929,9 @@
   border-bottom: 1px solid var(--border);
   font-weight: 800;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .data-table td {
@@ -1041,5 +1061,52 @@
   * {
     animation: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body, .app-shell, .app-viewport, .screen {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .tabbar, .layout-header, .btn, .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+  }
+
+  th, td {
+    border: 1px solid #ccc !important;
+    padding: 5px 8px !important;
+  }
+
+  .screen {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .app-viewport {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  @page {
+    margin: 15mm;
+    size: A4 portrait;
   }
 }

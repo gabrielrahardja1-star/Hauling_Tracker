@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
+import AnalyticsPage from './AnalyticsPage';
 import {
   Banner,
   BottomTabs,
@@ -381,6 +382,7 @@ export default function StockpileOperatorPage() {
     { key: 'cp2', label: 'Keluar', icon: I.arrowOut, badge: pendingTrips.length },
     { key: 'trips', label: 'Trip', icon: I.list },
     { key: 'export', label: 'Ekspor', icon: I.download },
+    { key: 'analytics', label: 'Analytics', icon: I.chart },
   ];
 
   return (
@@ -401,6 +403,7 @@ export default function StockpileOperatorPage() {
         <TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} />
       )}
       {tab === 'export' && <ExportPanel />}
+      {tab === 'analytics' && <AnalyticsPage embedded />}
     </Layout>
   );
 }
