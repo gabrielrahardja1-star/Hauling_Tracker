@@ -54,7 +54,7 @@ async function main() {
   const client = await pool.connect();
   try {
     const files = (await readdir(DATA_DIR))
-      .filter(f => f.endsWith('.xlsx'))
+      .filter(f => f.endsWith('.xlsx') && !f.startsWith('~$'))
       .sort();
 
     let totalUpdated = 0;
