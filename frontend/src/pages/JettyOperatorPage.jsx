@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
 import AnalyticsPage from './AnalyticsPage';
+import { useLang } from '../hooks/useLang';
 import {
   Banner,
   BottomTabs,
@@ -148,6 +149,7 @@ function scrollContentTop() {
 }
 
 export default function JettyOperatorPage() {
+  const { t } = useLang();
   const [tab, setTab] = useState('cp3');
   const [jettyFilter, setJettyFilter] = useState('');
   const [allTrips, setAllTrips] = useState([]);
@@ -247,18 +249,18 @@ export default function JettyOperatorPage() {
 
   const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
   const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
-  const titles = { cp3: 'Timbang Jetty', trips: 'Trip Hari Ini', barge: 'Loading Barge', export: 'Ekspor' };
+  const titles = { cp3: t('tabTimbang'), trips: t('todayTitle'), barge: t('tabBarge'), export: t('tabEkspor'), analytics: t('tabAnalytics') };
   const tabs = [
-    { key: 'cp3', label: 'Timbang', icon: I.scale, badge: inTransitCount },
-    { key: 'trips', label: 'Trip', icon: I.list },
-    { key: 'barge', label: 'Barge', icon: I.anchor },
-    { key: 'export', label: 'Ekspor', icon: I.download },
-    { key: 'analytics', label: 'Analytics', icon: I.chart },
+    { key: 'cp3', label: t('tabTimbang'), icon: I.scale, badge: inTransitCount },
+    { key: 'trips', label: t('tabTrip'), icon: I.list },
+    { key: 'barge', label: t('tabBarge'), icon: I.anchor },
+    { key: 'export', label: t('tabEkspor'), icon: I.download },
+    { key: 'analytics', label: t('tabAnalytics'), icon: I.chart },
   ];
 
   const filterControl = (
     <select className="inline-edit" style={{ minWidth: 112 }} value={jettyFilter} onChange={(e) => setJettyFilter(e.target.value)}>
-      <option value="">Semua</option>
+      <option value="">{t('analyticsAll')}</option>
       <option value="hasnur">Hasnur</option>
       <option value="talenta">Talenta</option>
     </select>

@@ -14,6 +14,7 @@ import {
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
 import { useSortFilter } from '../lib/useSortFilter';
+import { useLang } from '../hooks/useLang';
 
 function EditCell({ value, type = 'text', options, onSave }) {
   const [editing, setEditing] = useState(false);
@@ -176,6 +177,7 @@ function UserModal({ onClose }) {
 }
 
 export default function AdminPage() {
+  const { t } = useLang();
   const [filters, setFilters] = useState({ date: witaToday(), jetty: '', status: '' });
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -279,77 +281,77 @@ export default function AdminPage() {
       <div className="admin-actions">
         <button onClick={() => setShowUsers(true)} className="btn btn-ghost">
           <I.users width="18" height="18" />
-          Users
+          {t('navUsers')}
         </button>
         <a href="/analytics" className="btn btn-ghost">
           <I.chart width="18" height="18" />
-          Analytics
+          {t('navAnalytics')}
         </a>
         <a href="/stockpile" className="btn btn-ghost">
           <I.truck width="18" height="18" />
-          Stockpile
+          {t('navStockpile')}
         </a>
         <a href="/jetty" className="btn btn-ghost">
           <I.anchor width="18" height="18" />
-          Jetty
+          {t('navJetty')}
         </a>
         <button onClick={handleExport} disabled={exportLoading || !filters.date || !filters.jetty} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
           {exportLoading ? <Spinner className="h-4 w-4" /> : <I.download width="18" height="18" />}
-          Export .xlsx
+          {t('navExport')}
         </button>
       </div>
 
       <div className="card stack" style={{ gap: 12 }}>
-        <div className="section-label">Filters</div>
+        <div className="section-label">{t('filters')}</div>
         <div className="filter-grid">
-          <Field label="Date">
+          <Field label={t('filterDate')}>
             <input type="date" className="input" value={filters.date} onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value }))} />
           </Field>
-          <Field label="Jetty">
+          <Field label={t('filterJetty')}>
             <select className="input" value={filters.jetty} onChange={(e) => setFilters((f) => ({ ...f, jetty: e.target.value }))}>
-              <option value="">All Jettys</option>
+              <option value="">{t('allJettys')}</option>
               <option value="hasnur">Hasnur</option>
               <option value="talenta">Talenta</option>
             </select>
           </Field>
-          <Field label="Status">
+          <Field label={t('filterStatus')}>
             <select className="input" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="in_transit">In Transit</option>
-              <option value="completed">Completed</option>
+              <option value="">{t('allStatuses')}</option>
+              <option value="pending">{t('statusPending')}</option>
+              <option value="in_transit">{t('statusInTransit')}</option>
+              <option value="completed">{t('statusCompleted')}</option>
             </select>
           </Field>
         </div>
       </div>
 
       <div className="totals-grid">
-        <StatCard label="Gross Site" value={totals.grossSite} />
-        <StatCard label="Netto Site" value={totals.nettoSite} accent />
-        <StatCard label="Gross Jetty" value={totals.grossJetty} />
-        <StatCard label="Netto Jetty" value={totals.nettoJetty} accent />
-        <StatCard label="Barge Loading" value={bargeDayTotal} />
-        <StatCard label="Ending Coal Balance" value={cumulativeNettoJetty - cumulativeBargeTotal} accent />
+        <StatCard label={t('grossSite')} value={totals.grossSite} />
+        <StatCard label={t('nettoSite')} value={totals.nettoSite} accent />
+        <StatCard label={t('grossJetty')} value={totals.grossJetty} />
+        <StatCard label={t('nettoJetty')} value={totals.nettoJetty} accent />
+        <StatCard label={t('bargeLoading')} value={bargeDayTotal} />
+        <StatCard label={t('endingCoalBalance')} value={cumulativeNettoJetty - cumulativeBargeTotal} accent />
       </div>
 
       <div className={tableFullscreen ? 'table-fullscreen-overlay' : 'card flush'}>
         <div className="list-head">
           <div>
-            <div className="lh-title">Trips</div>
-            <div className="lh-sub">{displayTrips.length} of {trips.length} records</div>
+            <div className="lh-title">{t('trips')}</div>
+            <div className="lh-sub">{displayTrips.length} {t('of')} {trips.length} {t('records')}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               className="input"
               style={{ width: 200, height: 32, fontSize: 13 }}
-              placeholder="Search truck, status..."
+              placeholder={t('searchTrucks')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <IconButton className="icon-muted" label="Segarkan" onClick={fetchTrips}>
+            <IconButton className="icon-muted" label={t('refresh')} onClick={fetchTrips}>
               <I.refresh width="18" height="18" />
             </IconButton>
-            <IconButton className="icon-muted" label={tableFullscreen ? 'Exit fullscreen' : 'Fullscreen'} onClick={() => setTableFullscreen((v) => !v)}>
+            <IconButton className="icon-muted" label={tableFullscreen ? t('exitFullscreen') : t('fullscreen')} onClick={() => setTableFullscreen((v) => !v)}>
               {tableFullscreen ? <I.compress width="18" height="18" /> : <I.expand width="18" height="18" />}
             </IconButton>
           </div>
@@ -358,30 +360,30 @@ export default function AdminPage() {
         {loading ? (
           <div className="empty-state"><Spinner className="h-8 w-8" /></div>
         ) : trips.length === 0 ? (
-          <div className="empty-state">No trips found</div>
+          <div className="empty-state">{t('noTrips')}</div>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   {[
-                    { label: '#',          key: 'no_tiket' },
-                    { label: 'Truck',      key: 'no_lambung' },
-                    { label: 'Jetty',      key: 'jetty_destination' },
-                    { label: 'Status',     key: 'status' },
-                    { label: 'Coal',       key: 'coal_quality' },
-                    { label: 'Cuaca',      key: 'cuaca_mmi' },
-                    { label: 'Tare Site',  key: 'tare_site_kg' },
-                    { label: 'Gross Site', key: 'gross_site_kg' },
-                    { label: 'Netto Site', key: 'netto_site_kg' },
-                    { label: 'CP1',        key: 'cp1_timestamp' },
-                    { label: 'Gross Jetty',key: 'gross_jetty_kg' },
-                    { label: 'Netto Jetty',key: 'netto_jetty_kg' },
-                    { label: 'Comp.Gross', key: 'compare_gross_kg' },
-                    { label: 'Deviasi',    key: 'deviasi_kg' },
-                    { label: 'Adjustment', key: 'adjustment_kg' },
-                    { label: 'CP2',        key: 'cp2_timestamp' },
-                    { label: 'CP3',        key: 'cp3_timestamp' },
+                    { label: t('colNo'),         key: 'no_tiket' },
+                    { label: t('colTruck'),      key: 'no_lambung' },
+                    { label: t('colJetty'),      key: 'jetty_destination' },
+                    { label: t('colStatus'),     key: 'status' },
+                    { label: t('colCoal'),       key: 'coal_quality' },
+                    { label: t('colWeather'),    key: 'cuaca_mmi' },
+                    { label: t('colTareSite'),   key: 'tare_site_kg' },
+                    { label: t('colGrossSite'),  key: 'gross_site_kg' },
+                    { label: t('colNettoSite'),  key: 'netto_site_kg' },
+                    { label: t('colCP1'),        key: 'cp1_timestamp' },
+                    { label: t('colGrossJetty'), key: 'gross_jetty_kg' },
+                    { label: t('colNettoJetty'), key: 'netto_jetty_kg' },
+                    { label: t('colCompGross'),  key: 'compare_gross_kg' },
+                    { label: t('colDeviasi'),    key: 'deviasi_kg' },
+                    { label: t('colAdjustment'), key: 'adjustment_kg' },
+                    { label: t('colCP2'),        key: 'cp2_timestamp' },
+                    { label: t('colCP3'),        key: 'cp3_timestamp' },
                   ].map(({ label, key }) => (
                     <SortTh key={key} label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={toggleSort} />
                   ))}

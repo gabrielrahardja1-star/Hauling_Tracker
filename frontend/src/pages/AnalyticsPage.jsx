@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import { BottomTabs, I, JETTY, kg, toWITA, witaToday } from '../components/DesignSystem';
 import { api } from '../lib/api';
+import { useLang } from '../hooks/useLang';
 
 function subtractDays(dateStr, days) {
   const d = new Date(dateStr);
@@ -57,6 +58,7 @@ function JettyBalanceCard({ label, hauled, barged, hauledLabel = 'Hauled' }) {
 }
 
 function OverviewTab({ from, to, jetty }) {
+  const { t } = useLang();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -90,36 +92,36 @@ function OverviewTab({ from, to, jetty }) {
       {/* Top stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
-          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Hauled</div>
+          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsHauled')}</div>
           <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{tonnes(hauling.total_netto_kg)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>tonnes · {hauling.total_trips} trips</div>
+          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')} · {hauling.total_trips} {t('analyticsTripsCount')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
-          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Barged</div>
+          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsBarged')}</div>
           <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{tonnes(barge.total_qty_kg)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>tonnes · {barge.total_loadings} loadings</div>
+          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')} · {barge.total_loadings} {t('analyticsLoadings')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--accent-subtle, #f0fdf4)' }}>
-          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Balance</div>
+          <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsBalance')}</div>
           <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4, color: balance.total_kg < 0 ? 'var(--danger)' : 'var(--accent)' }}>
             {tonnes(balance.total_kg)}
           </div>
-          <div className="muted" style={{ fontSize: 11 }}>tonnes</div>
+          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')}</div>
         </div>
       </div>
 
       {/* Per-jetty breakdown */}
-      <div className="section-label">Per Jetty</div>
+      <div className="section-label">{t('analyticsPerJetty')}</div>
       <div style={{ display: 'flex', gap: 10 }}>
         <JettyBalanceCard
-          label="Talenta (Netto Site)"
-          hauledLabel="Netto Site"
+          label={`Talenta (${t('analyticsNettoSite')})`}
+          hauledLabel={t('analyticsNettoSite')}
           hauled={hauling.by_jetty.talenta?.netto_kg}
           barged={barge.by_jetty.talenta?.qty_kg}
         />
         <JettyBalanceCard
-          label="Talenta (Netto Jetty)"
-          hauledLabel="Netto Jetty"
+          label={`Talenta (${t('analyticsNettoJetty')})`}
+          hauledLabel={t('analyticsNettoJetty')}
           hauled={hauling.by_jetty.talenta?.netto_jetty_kg}
           barged={barge.by_jetty.talenta?.qty_kg}
         />
@@ -135,14 +137,14 @@ function OverviewTab({ from, to, jetty }) {
       {/* Daily table */}
       {hauling.by_date.length > 0 && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px 8px', fontWeight: 700, fontSize: 13 }}>Harian</div>
+          <div style={{ padding: '12px 14px 8px', fontWeight: 700, fontSize: 13 }}>{t('analyticsDaily')}</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '6px 14px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)' }}>Tanggal</th>
-                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>Trips</th>
-                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>Netto (t)</th>
+                  <th style={{ padding: '6px 14px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsDate')}</th>
+                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsTrips')}</th>
+                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsNet')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,7 +158,7 @@ function OverviewTab({ from, to, jetty }) {
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '8px 14px', fontWeight: 800 }}>Total</td>
+                  <td style={{ padding: '8px 14px', fontWeight: 800 }}>{t('analyticsTotal')}</td>
                   <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 800 }}>{hauling.total_trips}</td>
                   <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 800 }}>{tonnes(hauling.total_netto_kg)}</td>
                 </tr>
@@ -170,6 +172,7 @@ function OverviewTab({ from, to, jetty }) {
 }
 
 function MonitoringTab({ from, to, jetty }) {
+  const { t } = useLang();
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState('');
@@ -203,8 +206,8 @@ function MonitoringTab({ from, to, jetty }) {
   const totalBreaches = devCount + sla2Count;
 
   const sections = [
-    { key: 'deviation', label: 'Deviasi',    count: devCount },
-    { key: 'sla2',      label: 'SLA Transit', count: sla2Count },
+    { key: 'deviation', label: t('monitoringDeviation'),   count: devCount },
+    { key: 'sla2',      label: t('monitoringSLATransit'), count: sla2Count },
   ];
 
   return (
@@ -212,17 +215,17 @@ function MonitoringTab({ from, to, jetty }) {
       {/* Summary badges */}
       <div className="card">
         <div className="between" style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>Ringkasan Pelanggaran</div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{t('monitoringTitle')}</div>
           <button type="button" onClick={fetch} className="btn btn-ghost btn-sm"><I.refresh width="15" height="15" /></button>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <BreachBadge count={devCount}  label="deviasi > 0.5%" color="red" />
-          <BreachBadge count={sla2Count} label="SLA transit >4j" color="warn" />
+          <BreachBadge count={devCount}  label={t('monitoringDeviationLabel')} color="red" />
+          <BreachBadge count={sla2Count} label={t('monitoringSLALabel')} color="warn" />
         </div>
         {totalBreaches === 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, color: 'var(--accent)' }}>
             <I.check width="16" height="16" />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Tidak ada pelanggaran dalam periode ini</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{t('monitoringNoViolations')}</span>
           </div>
         )}
       </div>
@@ -368,37 +371,44 @@ function MonitoringTab({ from, to, jetty }) {
 }
 
 export default function AnalyticsPage({ embedded = false }) {
+  const { t } = useLang();
   const today = witaToday();
   const [tab, setTab]     = useState('overview');
   const [from, setFrom]   = useState(subtractDays(today, 30));
   const [to, setTo]       = useState(today);
   const [jetty, setJetty] = useState('');
 
-  const titles = { overview: 'Overview', monitoring: 'Monitoring' };
+  const titles = { overview: t('analyticsOverview'), monitoring: t('analyticsMonitoring') };
   const tabs = [
-    { key: 'overview',   label: 'Overview',   icon: I.chart },
-    { key: 'monitoring', label: 'Monitoring', icon: I.warning },
+    { key: 'overview',   label: t('analyticsOverview'),   icon: I.chart },
+    { key: 'monitoring', label: t('analyticsMonitoring'), icon: I.warning },
   ];
+
+  const filterFields = (
+    <>
+      <div style={{ flex: 1, minWidth: 110 }}>
+        <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('analyticsFrom')}</div>
+        <input type="date" className="input" style={{ fontSize: 13 }} value={from} onChange={(e) => setFrom(e.target.value)} />
+      </div>
+      <div style={{ flex: 1, minWidth: 110 }}>
+        <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('analyticsTo')}</div>
+        <input type="date" className="input" style={{ fontSize: 13 }} value={to} onChange={(e) => setTo(e.target.value)} />
+      </div>
+      <div style={{ flex: 1, minWidth: 100 }}>
+        <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('analyticsJetty')}</div>
+        <select className="input" style={{ fontSize: 13 }} value={jetty} onChange={(e) => setJetty(e.target.value)}>
+          <option value="">{t('analyticsAll')}</option>
+          <option value="hasnur">Hasnur</option>
+          <option value="talenta">Talenta</option>
+        </select>
+      </div>
+    </>
+  );
 
   const filters = (
     <div className="card" style={{ marginBottom: 0 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: 110 }}>
-          <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Dari</div>
-          <input type="date" className="input" style={{ fontSize: 13 }} value={from} onChange={(e) => setFrom(e.target.value)} />
-        </div>
-        <div style={{ flex: 1, minWidth: 110 }}>
-          <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Sampai</div>
-          <input type="date" className="input" style={{ fontSize: 13 }} value={to} onChange={(e) => setTo(e.target.value)} />
-        </div>
-        <div style={{ flex: 1, minWidth: 100 }}>
-          <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Jetty</div>
-          <select className="input" style={{ fontSize: 13 }} value={jetty} onChange={(e) => setJetty(e.target.value)}>
-            <option value="">Semua</option>
-            <option value="hasnur">Hasnur</option>
-            <option value="talenta">Talenta</option>
-          </select>
-        </div>
+        {filterFields}
       </div>
     </div>
   );
@@ -409,22 +419,7 @@ export default function AnalyticsPage({ embedded = false }) {
       {embedded && (
         <div className="card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1, minWidth: 110 }}>
-              <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Dari</div>
-              <input type="date" className="input" style={{ fontSize: 13 }} value={from} onChange={(e) => setFrom(e.target.value)} />
-            </div>
-            <div style={{ flex: 1, minWidth: 110 }}>
-              <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Sampai</div>
-              <input type="date" className="input" style={{ fontSize: 13 }} value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
-            <div style={{ flex: 1, minWidth: 100 }}>
-              <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Jetty</div>
-              <select className="input" style={{ fontSize: 13 }} value={jetty} onChange={(e) => setJetty(e.target.value)}>
-                <option value="">Semua</option>
-                <option value="hasnur">Hasnur</option>
-                <option value="talenta">Talenta</option>
-              </select>
-            </div>
+            {filterFields}
             <div style={{ display: 'flex', gap: 6 }}>
               {Object.entries(titles).map(([key, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} style={{

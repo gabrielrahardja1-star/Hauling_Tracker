@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useLang } from '../hooks/useLang';
 import { Field } from '../components/DesignSystem';
 import Spinner from '../components/Spinner';
 
@@ -12,6 +13,7 @@ const ROLE_HOME = {
 
 export default function LoginPage() {
   const { signIn } = useAuth();
+  const { lang, setLang, t } = useLang();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +44,7 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="stack" style={{ gap: 14 }}>
-            <Field label="Nama Pengguna">
+            <Field label={t('loginEmail')}>
               <input
                 type="text"
                 className="input"
@@ -53,7 +55,7 @@ export default function LoginPage() {
                 autoComplete="username"
               />
             </Field>
-            <Field label="Kata Sandi">
+            <Field label={t('loginPassword')}>
               <input
                 type="password"
                 className="input"
@@ -68,9 +70,20 @@ export default function LoginPage() {
             {error && <div className="alert">{error}</div>}
 
             <button type="submit" className="btn btn-brand" disabled={loading} style={{ marginTop: 4 }}>
-              {loading ? <Spinner className="h-5 w-5" /> : 'Masuk'}
+              {loading ? <Spinner className="h-5 w-5" /> : t('loginButton')}
             </button>
           </form>
+
+          <button
+            onClick={() => setLang(lang === 'id' ? 'zh' : 'id')}
+            style={{
+              marginTop: 16, padding: '6px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+              border: '1.5px solid var(--border)', background: 'transparent',
+              color: 'var(--text-3)', cursor: 'pointer',
+            }}
+          >
+            {lang === 'id' ? '切换到中文' : 'Ganti ke Indonesia'}
+          </button>
         </div>
       </div>
     </div>

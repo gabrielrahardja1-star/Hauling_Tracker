@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { LangProvider } from './hooks/useLang';
 import { setAuthProvider } from './lib/api';
 import LoginPage from './pages/LoginPage';
 import StockpileOperatorPage from './pages/StockpileOperatorPage';
@@ -77,10 +78,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <LangProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </LangProvider>
   );
 }

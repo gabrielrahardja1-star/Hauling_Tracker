@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
 import AnalyticsPage from './AnalyticsPage';
+import { useLang } from '../hooks/useLang';
 import {
   Banner,
   BottomTabs,
@@ -354,6 +355,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
 }
 
 export default function StockpileOperatorPage() {
+  const { t } = useLang();
   const [tab, setTab] = useState('cp1');
   const [trips, setTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
@@ -375,14 +377,14 @@ export default function StockpileOperatorPage() {
     return () => clearInterval(interval);
   }, [fetchTrips]);
 
-  const pendingTrips = trips.filter((t) => t.status === 'pending');
-  const titles = { cp1: 'Jam Masuk', cp2: 'Jam Keluar', trips: 'Trip Hari Ini', export: 'Ekspor' };
+  const pendingTrips = trips.filter((tr) => tr.status === 'pending');
+  const titles = { cp1: t('tabMasuk'), cp2: t('tabKeluar'), trips: t('todayTitle'), export: t('tabEkspor'), analytics: t('tabAnalytics') };
   const tabs = [
-    { key: 'cp1', label: 'Masuk', icon: I.arrowIn },
-    { key: 'cp2', label: 'Keluar', icon: I.arrowOut, badge: pendingTrips.length },
-    { key: 'trips', label: 'Trip', icon: I.list },
-    { key: 'export', label: 'Ekspor', icon: I.download },
-    { key: 'analytics', label: 'Analytics', icon: I.chart },
+    { key: 'cp1', label: t('tabMasuk'), icon: I.arrowIn },
+    { key: 'cp2', label: t('tabKeluar'), icon: I.arrowOut, badge: pendingTrips.length },
+    { key: 'trips', label: t('tabTrip'), icon: I.list },
+    { key: 'export', label: t('tabEkspor'), icon: I.download },
+    { key: 'analytics', label: t('tabAnalytics'), icon: I.chart },
   ];
 
   return (
