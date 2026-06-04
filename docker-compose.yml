@@ -25,13 +25,10 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
-    ports:
-      - "3002:3002"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: host
     environment:
       PORT: 3002
-      DATABASE_URL: postgres://hauling_user:${DB_PASSWORD}@host.docker.internal:5432/hauling_tracker
+      DATABASE_URL: postgres://hauling_user:${DB_PASSWORD}@localhost:5432/hauling_tracker
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: http://${SERVER_IP}
     depends_on:
