@@ -3,8 +3,10 @@ import Spinner from './Spinner';
 import { Field, I, SortTh, StatCard, StatusPill, kg, toWITA, witaToday } from './DesignSystem';
 import { api } from '../lib/api';
 import { useSortFilter } from '../lib/useSortFilter';
+import { useLang } from '../hooks/useLang';
 
 export default function ExportPanel() {
+  const { t } = useLang();
   const [date, setDate] = useState(witaToday());
   const [jetty, setJetty] = useState('hasnur');
   const [trips, setTrips] = useState([]);
@@ -58,28 +60,28 @@ export default function ExportPanel() {
   }), { tare: 0, gross_site: 0, netto_site: 0, netto_jetty: 0 });
 
   const COLS = [
-    { label: '#',          key: 'no_tiket' },
-    { label: 'Truck',      key: 'no_lambung' },
-    { label: 'Status',     key: 'status' },
-    { label: 'Tare',       key: 'tare_site_kg' },
-    { label: 'Gross Site', key: 'gross_site_kg' },
-    { label: 'Netto Site', key: 'netto_site_kg' },
-    { label: 'Gross Jetty',key: 'gross_jetty_kg' },
-    { label: 'Netto Jetty',key: 'netto_jetty_kg' },
-    { label: 'Deviasi',    key: 'deviasi_kg' },
-    { label: 'Masuk',      key: 'cp1_timestamp' },
-    { label: 'Keluar',     key: 'cp2_timestamp' },
-    { label: 'Jetty',      key: 'cp3_timestamp' },
+    { label: t('colNo'),         key: 'no_tiket' },
+    { label: t('colTruck'),      key: 'no_lambung' },
+    { label: t('colStatus'),     key: 'status' },
+    { label: t('exportTare'),    key: 'tare_site_kg' },
+    { label: t('colGrossSite'),  key: 'gross_site_kg' },
+    { label: t('colNettoSite'),  key: 'netto_site_kg' },
+    { label: t('colGrossJetty'), key: 'gross_jetty_kg' },
+    { label: t('colNettoJetty'), key: 'netto_jetty_kg' },
+    { label: t('colDeviasi'),    key: 'deviasi_kg' },
+    { label: t('exportMasuk'),   key: 'cp1_timestamp' },
+    { label: t('exportKeluar'),  key: 'cp2_timestamp' },
+    { label: t('exportJettyCol'),key: 'cp3_timestamp' },
   ];
 
   return (
     <div className="stack" style={{ gap: 14 }}>
       <div className="card stack" style={{ gap: 14 }}>
         <div className="filter-grid">
-          <Field label="Tanggal">
+          <Field label={t('exportDate')}>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Jetty">
+          <Field label={t('exportJetty')}>
             <select className="input" value={jetty} onChange={(e) => setJetty(e.target.value)}>
               <option value="hasnur">Hasnur</option>
               <option value="talenta">Talenta</option>
@@ -93,7 +95,7 @@ export default function ExportPanel() {
           ) : (
             <>
               <I.download width="20" height="20" />
-              Unduh Excel
+              {t('exportButton')}
             </>
           )}
         </button>
@@ -101,10 +103,10 @@ export default function ExportPanel() {
 
       {trips.length > 0 && (
         <div className="totals-grid">
-          <StatCard label="Tare Site" value={totals.tare} />
-          <StatCard label="Gross Site" value={totals.gross_site} />
-          <StatCard label="Netto Site" value={totals.netto_site} accent />
-          <StatCard label="Netto Jetty" value={totals.netto_jetty} accent />
+          <StatCard label={t('colTareSite')} value={totals.tare} />
+          <StatCard label={t('colGrossSite')} value={totals.gross_site} />
+          <StatCard label={t('colNettoSite')} value={totals.netto_site} accent />
+          <StatCard label={t('colNettoJetty')} value={totals.netto_jetty} accent />
         </div>
       )}
 
@@ -112,13 +114,13 @@ export default function ExportPanel() {
         <div className="list-head">
           <div>
             <div className="lh-title">{jetty === 'hasnur' ? 'Hasnur' : 'Talenta'} - {date}</div>
-            <div className="lh-sub">{displayTrips.length} of {trips.length} truk</div>
+            <div className="lh-sub">{displayTrips.length} {t('of')} {trips.length} {t('exportTruk')}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               className="input"
               style={{ width: 180, height: 32, fontSize: 13 }}
-              placeholder="Search truck..."
+              placeholder={t('searchTrucks')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -133,7 +135,7 @@ export default function ExportPanel() {
         ) : error ? (
           <div className="empty-state" style={{ color: 'var(--danger)' }}>{error}</div>
         ) : trips.length === 0 ? (
-          <div className="empty-state">Tidak ada trip untuk pilihan ini</div>
+          <div className="empty-state">{t('exportEmpty')}</div>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -162,7 +164,7 @@ export default function ExportPanel() {
                   </tr>
                 ))}
                 <tr>
-                  <td colSpan={3} style={{ fontWeight: 800 }}>TOTAL</td>
+                  <td colSpan={3} style={{ fontWeight: 800 }}>{t('exportTotal')}</td>
                   <td style={{ textAlign: 'right', fontWeight: 800 }}>{kg(totals.tare)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 800 }}>{kg(totals.gross_site)}</td>
                   <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}>{kg(totals.netto_site)}</td>

@@ -302,6 +302,99 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   res.end();
 });
 
+// GET /trips/truck-history?no_lambung=&from=&to= — all-time trips for a truck
+router.get('/truck-history', requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin'), async (req, res) => {
+  const { no_lambung, from, to } = req.query;
+  if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
+
+  const conds = ['no_lambung = $1'];
+  const vals  = [no_lambung.trim().toUpperCase()];
+  let idx = 2;
+  if (from) { conds.push(`date >= $${idx++}`); vals.push(from); }
+  if (to)   { conds.push(`date <= $${idx++}`); vals.push(to); }
+
+  const trips = await query(
+    `select *,
+       round(abs(deviasi_kg::numeric / nullif(netto_site_kg, 0)) * 100, 2) as deviation_pct
+     from trips
+     where ${conds.join(' and ')}
+     order by date desc, no_tiket asc`,
+    vals
+  );
+  res.json(trips.map((r) => ({ ...r, deviation_pct: r.deviation_pct != null ? Number(r.deviation_pct) : null })));
+});
+
+// GET /trips/truck-history/export?no_lambung=&from=&to= — Excel for truck history
+router.get('/truck-history/export', requireRole('analytics', 'admin'), async (req, res) => {
+  const { no_lambung, from, to } = req.query;
+  if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
+
+  const conds = ['no_lambung = $1'];
+  const vals  = [no_lambung.trim().toUpperCase()];
+  let idx = 2;
+  if (from) { conds.push(`date >= $${idx++}`); vals.push(from); }
+  if (to)   { conds.push(`date <= $${idx++}`); vals.push(to); }
+
+  const trips = await query(
+    `select *,
+       round(abs(deviasi_kg::numeric / nullif(netto_site_kg, 0)) * 100, 2) as deviation_pct
+     from trips
+     where ${conds.join(' and ')}
+     order by date desc, no_tiket asc`,
+    vals
+  );
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Truck History');
+  const numFmt = '#,##0';
+  const center = { horizontal: 'center', vertical: 'middle' };
+  const right  = { horizontal: 'right',  vertical: 'middle' };
+
+  const headerRow = sheet.addRow([
+    'Tanggal', 'No.Tiket', 'Jetty', 'Coal', 'Tare (kg)',
+    'Gross Site (kg)', 'Netto Site (kg)',
+    'Gross Jetty (kg)', 'Netto Jetty (kg)',
+    'Deviasi (kg)', 'Deviasi %', 'Status',
+  ]);
+  headerRow.font = { bold: true, size: 11 };
+  headerRow.eachCell((cell) => { cell.alignment = center; });
+
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  const toHHMM = (ts) => {
+    if (!ts) return '';
+    return new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(11, 16);
+  };
+
+  trips.forEach((t) => {
+    const row = sheet.addRow([
+      t.date, t.no_tiket,
+      t.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta',
+      t.coal_quality === 'raw' ? '原煤' : '精煤',
+      t.tare_site_kg, t.gross_site_kg, t.netto_site_kg,
+      t.gross_jetty_kg, t.netto_jetty_kg,
+      t.deviasi_kg, t.deviation_pct != null ? Number(t.deviation_pct) : null,
+      t.status,
+    ]);
+    row.height = 18;
+    [5,6,7,8,9,10].forEach((c) => {
+      row.getCell(c).numFmt = numFmt;
+      row.getCell(c).alignment = right;
+    });
+    if (t.deviation_pct != null && Number(t.deviation_pct) > 0.5) {
+      row.getCell(11).font = { color: { argb: 'FFCC0000' } };
+    }
+  });
+
+  const colWidths = [14, 10, 12, 10, 14, 18, 16, 18, 16, 14, 12, 12];
+  colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=truck_${no_lambung.replace(/\s/g,'_')}.xlsx`);
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
 // GET /trips — admin list with filters
 router.get('/', requireRole('admin'), async (req, res) => {
   const { date, date_to, jetty, status } = req.query;

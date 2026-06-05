@@ -1,5 +1,6 @@
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 import { I, IconButton, LiveTime, SyncChip } from './DesignSystem';
 
 const ROLE_HOME = {
@@ -12,6 +13,7 @@ const ROLE_HOME = {
 export default function Layout({ children, title, kicker, footer, wide = false }) {
   const { role, signOut } = useAuth();
   const { lang, setLang, t } = useLang();
+  const { unit, setUnit } = useUnit();
   const home = ROLE_HOME[role];
   const isHome = home && window.location.pathname === home;
 
@@ -38,6 +40,17 @@ export default function Layout({ children, title, kicker, footer, wide = false }
               <LiveTime />
             </div>
             <SyncChip online compact />
+            <button
+              onClick={() => setUnit(unit === 'kg' ? 't' : 'kg')}
+              style={{
+                padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                border: '1.5px solid var(--border)', background: 'var(--surface)',
+                color: 'var(--text)', cursor: 'pointer', letterSpacing: 0.5,
+              }}
+              title={unit === 'kg' ? 'Switch to tonnes' : 'Switch to kg'}
+            >
+              {unit === 'kg' ? 'kg' : 't'}
+            </button>
             <button
               onClick={() => setLang(lang === 'id' ? 'zh' : 'id')}
               style={{

@@ -343,7 +343,20 @@ export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
             </>
           ) : (
             <>
-              {t('tripNetto')} <b>{kg(trip.netto_jetty_kg)}</b> kg, {t('tripDev')} {kg(trip.deviasi_kg)}
+              {t('tripNetto')} <b>{kg(trip.netto_jetty_kg)}</b> kg,{' '}
+              {t('tripDev')}{' '}
+              {(() => {
+                const dev = trip.deviasi_kg;
+                const base = trip.netto_site_kg;
+                if (dev == null || !base) return <span>{kg(dev)}</span>;
+                const pct = Math.abs(dev / base) * 100;
+                const over = pct > 0.5;
+                return (
+                  <b style={{ color: over ? 'var(--danger, #e53e3e)' : 'var(--accent, #16a34a)' }}>
+                    {kg(dev)} kg ({pct.toFixed(1)}%)
+                  </b>
+                );
+              })()}
             </>
           )}
         </span>

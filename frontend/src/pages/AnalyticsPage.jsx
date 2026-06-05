@@ -4,6 +4,7 @@ import Spinner from '../components/Spinner';
 import { BottomTabs, I, JETTY, kg, toWITA, witaToday } from '../components/DesignSystem';
 import { api } from '../lib/api';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 
 function subtractDays(dateStr, days) {
   const d = new Date(dateStr);
@@ -11,9 +12,12 @@ function subtractDays(dateStr, days) {
   return d.toISOString().split('T')[0];
 }
 
-function tonnes(kg) {
-  if (kg == null) return '-';
-  return (Number(kg) / 1000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatWeight(kgValue, unit) {
+  if (kgValue == null) return '-';
+  const n = unit === 'kg'
+    ? Number(kgValue)
+    : Number(kgValue) / 1000;
+  return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function BreachBadge({ count, label, color }) {
@@ -30,7 +34,9 @@ function BreachBadge({ count, label, color }) {
   );
 }
 
-function JettyBalanceCard({ label, hauled, barged, hauledLabel = 'Hauled' }) {
+function JettyBalanceCard({ label, hauled, barged, hauledLabel = 'Netto Site' }) {
+  const { t } = useLang();
+  const { unit } = useUnit();
   const balance = (hauled ?? 0) - (barged ?? 0);
   return (
     <div className="card" style={{ flex: 1, minWidth: 0 }}>
@@ -40,16 +46,16 @@ function JettyBalanceCard({ label, hauled, barged, hauledLabel = 'Hauled' }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div className="between">
           <span className="muted" style={{ fontSize: 12 }}>{hauledLabel}</span>
-          <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 13 }}>{tonnes(hauled)} t</span>
+          <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 13 }}>{formatWeight(hauled, unit)} {unit}</span>
         </div>
         <div className="between">
-          <span className="muted" style={{ fontSize: 12 }}>Barged</span>
-          <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 13 }}>{tonnes(barged)} t</span>
+          <span className="muted" style={{ fontSize: 12 }}>{t('analyticsBarged')}</span>
+          <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 13 }}>{formatWeight(barged, unit)} {unit}</span>
         </div>
         <div className="between" style={{ paddingTop: 6, borderTop: '1px solid var(--border)', marginTop: 2 }}>
-          <span style={{ fontSize: 12, fontWeight: 800 }}>Balance</span>
+          <span style={{ fontSize: 12, fontWeight: 800 }}>{t('analyticsBalance')}</span>
           <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 15, color: balance < 0 ? 'var(--danger)' : 'var(--accent)' }}>
-            {tonnes(balance)} t
+            {formatWeight(balance, unit)} {unit}
           </span>
         </div>
       </div>
@@ -57,8 +63,54 @@ function JettyBalanceCard({ label, hauled, barged, hauledLabel = 'Hauled' }) {
   );
 }
 
+function TalentaCard({ nettoSiteKg, nettoJettyKg, bargedKg }) {
+  const { t } = useLang();
+  const { unit } = useUnit();
+  const siteBalance = (nettoSiteKg ?? 0) - (bargedKg ?? 0);
+  const jettyBalance = (nettoJettyKg ?? 0) - (bargedKg ?? 0);
+
+  function SubBox({ titleKey, valueKg, balance }) {
+    return (
+      <div style={{ flex: 1, minWidth: 0, background: 'var(--bg, #f8f9fa)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)' }}>
+        <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, whiteSpace: 'nowrap' }}>
+          {t(titleKey)}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="between">
+            <span className="muted" style={{ fontSize: 11 }}>{t(titleKey)}</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 12 }}>{formatWeight(valueKg, unit)} {unit}</span>
+          </div>
+          <div className="between">
+            <span className="muted" style={{ fontSize: 11 }}>{t('analyticsBarged')}</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 12 }}>{formatWeight(bargedKg, unit)} {unit}</span>
+          </div>
+          <div className="between" style={{ paddingTop: 4, borderTop: '1px solid var(--border)', marginTop: 2 }}>
+            <span style={{ fontSize: 11, fontWeight: 800 }}>{t('analyticsBalance')}</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 13, color: balance < 0 ? 'var(--danger)' : 'var(--accent)' }}>
+              {formatWeight(balance, unit)} {unit}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ flex: 1, minWidth: 0 }}>
+      <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+        Talenta
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <SubBox titleKey="analyticsNettoSite" valueKg={nettoSiteKg} balance={siteBalance} />
+        <SubBox titleKey="analyticsNettoJetty" valueKg={nettoJettyKg} balance={jettyBalance} />
+      </div>
+    </div>
+  );
+}
+
 function OverviewTab({ from, to, jetty }) {
   const { t } = useLang();
+  const { unit } = useUnit();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -93,42 +145,34 @@ function OverviewTab({ from, to, jetty }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
           <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsHauled')}</div>
-          <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{tonnes(hauling.total_netto_kg)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')} · {hauling.total_trips} {t('analyticsTripsCount')}</div>
+          <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{formatWeight(hauling.total_netto_kg, unit)}</div>
+          <div className="muted" style={{ fontSize: 11 }}>{unit} · {hauling.total_trips} {t('analyticsTripsCount')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
           <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsBarged')}</div>
-          <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{tonnes(barge.total_qty_kg)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')} · {barge.total_loadings} {t('analyticsLoadings')}</div>
+          <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{formatWeight(barge.total_qty_kg, unit)}</div>
+          <div className="muted" style={{ fontSize: 11 }}>{unit} · {barge.total_loadings} {t('analyticsLoadings')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px', background: 'var(--accent-subtle, #f0fdf4)' }}>
           <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsBalance')}</div>
           <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4, color: balance.total_kg < 0 ? 'var(--danger)' : 'var(--accent)' }}>
-            {tonnes(balance.total_kg)}
+            {formatWeight(balance.total_kg, unit)}
           </div>
-          <div className="muted" style={{ fontSize: 11 }}>{t('analyticsTonnes')}</div>
+          <div className="muted" style={{ fontSize: 11 }}>{unit}</div>
         </div>
       </div>
 
       {/* Per-jetty breakdown */}
       <div className="section-label">{t('analyticsPerJetty')}</div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <JettyBalanceCard
-          label={`Talenta (${t('analyticsNettoSite')})`}
-          hauledLabel={t('analyticsNettoSite')}
-          hauled={hauling.by_jetty.talenta?.netto_kg}
-          barged={barge.by_jetty.talenta?.qty_kg}
-        />
-        <JettyBalanceCard
-          label={`Talenta (${t('analyticsNettoJetty')})`}
-          hauledLabel={t('analyticsNettoJetty')}
-          hauled={hauling.by_jetty.talenta?.netto_jetty_kg}
-          barged={barge.by_jetty.talenta?.qty_kg}
-        />
-      </div>
+      <TalentaCard
+        nettoSiteKg={hauling.by_jetty.talenta?.netto_kg}
+        nettoJettyKg={hauling.by_jetty.talenta?.netto_jetty_kg}
+        bargedKg={barge.by_jetty.talenta?.qty_kg}
+      />
       <div style={{ display: 'flex', gap: 10 }}>
         <JettyBalanceCard
           label="Hasnur"
+          hauledLabel={t('analyticsNettoSite')}
           hauled={hauling.by_jetty.hasnur?.netto_kg}
           barged={barge.by_jetty.hasnur?.qty_kg}
         />
@@ -144,7 +188,7 @@ function OverviewTab({ from, to, jetty }) {
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '6px 14px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsDate')}</th>
                   <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsTrips')}</th>
-                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsNet')}</th>
+                  <th style={{ padding: '6px 14px', textAlign: 'right', fontWeight: 700, color: 'var(--muted)' }}>{t('analyticsNet')} ({unit})</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,7 +196,7 @@ function OverviewTab({ from, to, jetty }) {
                   <tr key={d.date} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 14px', fontFamily: 'var(--font-num)' }}>{d.date}</td>
                     <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{d.trips}</td>
-                    <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 700 }}>{tonnes(d.netto_kg)}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 700 }}>{formatWeight(d.netto_kg, unit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -160,7 +204,7 @@ function OverviewTab({ from, to, jetty }) {
                 <tr style={{ borderTop: '2px solid var(--border)' }}>
                   <td style={{ padding: '8px 14px', fontWeight: 800 }}>{t('analyticsTotal')}</td>
                   <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 800 }}>{hauling.total_trips}</td>
-                  <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 800 }}>{tonnes(hauling.total_netto_kg)}</td>
+                  <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)', fontWeight: 800 }}>{formatWeight(hauling.total_netto_kg, unit)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -177,6 +221,28 @@ function MonitoringTab({ from, to, jetty }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState('');
   const [section, setSection] = useState('deviation');
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  async function handleExportExcel() {
+    setExportingExcel(true);
+    try {
+      const params = {};
+      if (from)  params.from  = from;
+      if (to)    params.to    = to;
+      if (jetty) params.jetty = jetty;
+      const blob = await api.exportMonitoring(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `monitoring_${from || 'all'}_${to || 'all'}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Export failed: ${err.message}`);
+    } finally {
+      setExportingExcel(false);
+    }
+  }
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -260,53 +326,53 @@ function MonitoringTab({ from, to, jetty }) {
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px 8px' }} className="between">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>Deviasi &gt; 0.5%</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{t('monitoringDeviationTitle')}</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {devCount} dari {deviation.eligible} pengiriman dengan data jetty
+                {devCount} {t('monitoringDari')} {deviation.eligible} {t('monitoringEligible')}
               </div>
             </div>
-            {devCount > 0 && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm no-print"
-                onClick={() => window.print()}
-                title="Print"
-              >
-                <I.download width="15" height="15" /> Print
+            <div style={{ display: 'flex', gap: 6 }}>
+              {devCount > 0 && (
+                <button type="button" className="btn btn-ghost btn-sm no-print" onClick={() => window.print()} title={t('monitoringPrint')}>
+                  <I.download width="15" height="15" /> {t('monitoringPrint')}
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleExportExcel} disabled={exportingExcel} title={t('monitoringExcel')}>
+                <I.download width="15" height="15" /> {t('monitoringExcel')}
               </button>
-            )}
+            </div>
           </div>
           <div className="print-only" style={{ display: 'none', padding: '8px 14px 4px' }}>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Laporan Deviasi &gt; 0.5%</div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>{t('monitoringDeviationTitle')}</div>
             <div style={{ fontSize: 12, color: '#666' }}>
-              Periode: {from} s/d {to}{jetty ? ` · Jetty: ${jetty}` : ''} · {devCount} dari {deviation.eligible} pengiriman
+              {t('monitoringPeriod')}: {from} — {to}{jetty ? ` · Jetty: ${jetty}` : ''} · {devCount} {t('monitoringDari')} {deviation.eligible}
             </div>
           </div>
           {devCount === 0 ? (
-            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>Tidak ada pelanggaran.</div>
+            <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>{t('monitoringNoData')}</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>Truk</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Netto Site</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Netto Jetty</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Deviasi</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringTruck')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringNettoSite')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringNettoJetty')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringDevLabel')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {deviation.breaches.map((t) => (
-                    <tr key={t.trip_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  {deviation.breaches.map((br) => (
+                    <tr key={br.trip_id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontWeight: 700 }}>{t.no_lambung}</div>
-                        <div className="muted" style={{ fontSize: 11 }}>#{t.no_tiket} · {t.date} · {JETTY[t.jetty_destination]}</div>
+                        <div style={{ fontWeight: 700 }}>{br.no_lambung}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>#{br.no_tiket} · {br.date} · {JETTY[br.jetty_destination]}</div>
                       </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{kg(t.netto_site_kg)}</td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{kg(t.netto_jetty_kg)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{kg(br.netto_site_kg)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{kg(br.netto_jetty_kg)}</td>
                       <td style={{ padding: '8px 14px', textAlign: 'right' }}>
                         <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, color: 'var(--danger)' }}>
-                          {t.deviation_pct}%
+                          {br.deviation_pct}%
                         </span>
                       </td>
                     </tr>
@@ -321,41 +387,44 @@ function MonitoringTab({ from, to, jetty }) {
       {/* SLA CP2→CP3 */}
       {section === 'sla2' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px 8px' }}>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>SLA Transit &gt; 4 jam (CP2→CP3)</div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              {sla2Count} dari {sla_cp2_cp3.eligible} pengiriman dengan data jetty
+          <div style={{ padding: '12px 14px 8px' }} className="between">
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{t('monitoringSLATitle')}</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                {sla2Count} {t('monitoringDari')} {sla_cp2_cp3.eligible} {t('monitoringEligible')}
+              </div>
             </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleExportExcel} disabled={exportingExcel} title={t('monitoringExcel')}>
+              <I.download width="15" height="15" /> {t('monitoringExcel')}
+            </button>
           </div>
           {sla2Count === 0 ? (
             <div className="muted" style={{ padding: '12px 14px', fontSize: 13 }}>
-              {sla_cp2_cp3.eligible === 0
-                ? 'Belum ada data jetty (CP3). Akan terisi saat pengiriman selesai dicatat di jetty.'
-                : 'Tidak ada pelanggaran.'}
+              {sla_cp2_cp3.eligible === 0 ? t('monitoringNoJettyData') : t('monitoringNoData')}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>Truk</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Keluar Site</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Tiba Jetty</th>
-                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>Durasi</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringTruck')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringKeluar')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringTiba')}</th>
+                    <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('monitoringDuration')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sla_cp2_cp3.breaches.map((t) => (
-                    <tr key={t.trip_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  {sla_cp2_cp3.breaches.map((br) => (
+                    <tr key={br.trip_id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontWeight: 700 }}>{t.no_lambung}</div>
-                        <div className="muted" style={{ fontSize: 11 }}>#{t.no_tiket} · {t.date} · {JETTY[t.jetty_destination]}</div>
+                        <div style={{ fontWeight: 700 }}>{br.no_lambung}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>#{br.no_tiket} · {br.date} · {JETTY[br.jetty_destination]}</div>
                       </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{toWITA(t.cp2_timestamp)}</td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{toWITA(t.cp3_timestamp)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{toWITA(br.cp2_timestamp)}</td>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>{toWITA(br.cp3_timestamp)}</td>
                       <td style={{ padding: '8px 14px', textAlign: 'right' }}>
                         <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, color: '#b45309' }}>
-                          {t.hours_cp2_cp3} jam
+                          {br.hours_cp2_cp3} {t('monitoringJam')}
                         </span>
                       </td>
                     </tr>
@@ -370,6 +439,159 @@ function MonitoringTab({ from, to, jetty }) {
   );
 }
 
+function TruckHistoryTab({ defaultFrom, defaultTo }) {
+  const { t } = useLang();
+  const { unit } = useUnit();
+  const [truck, setTruck] = useState('');
+  const [from, setFrom] = useState(defaultFrom || '');
+  const [to, setTo] = useState(defaultTo || '');
+  const [trips, setTrips] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!truck.trim()) return;
+    setLoading(true);
+    setError('');
+    setTrips(null);
+    try {
+      const params = { no_lambung: truck.trim().toUpperCase() };
+      if (from) params.from = from;
+      if (to)   params.to   = to;
+      setTrips(await api.getTruckHistory(params));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const params = { no_lambung: truck.trim().toUpperCase() };
+      if (from) params.from = from;
+      if (to)   params.to   = to;
+      const blob = await api.exportTruckHistory(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `truck_${truck.trim().toUpperCase()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Export failed: ${err.message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const totalTrips   = trips?.length ?? 0;
+  const completedTrips = trips?.filter((r) => r.status === 'completed') ?? [];
+  const overTolerance  = completedTrips.filter((r) => r.deviation_pct != null && r.deviation_pct > 0.5).length;
+
+  return (
+    <div className="stack" style={{ gap: 14 }}>
+      <div className="card stack" style={{ gap: 12 }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="text"
+            className="input num grow"
+            placeholder={t('truckHistoryPlaceholder')}
+            value={truck}
+            onChange={(e) => setTruck(e.target.value.toUpperCase())}
+          />
+          <button type="submit" className="btn btn-brand btn-sm" style={{ width: 54, padding: 0 }} disabled={loading || !truck.trim()}>
+            {loading ? <Spinner className="h-5 w-5" /> : <I.search width="20" height="20" />}
+          </button>
+        </form>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('analyticsFrom')}</div>
+            <input type="date" className="input" style={{ fontSize: 13 }} value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('analyticsTo')}</div>
+            <input type="date" className="input" style={{ fontSize: 13 }} value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+        {error && <div className="alert">{error}</div>}
+      </div>
+
+      {trips === null && !loading && (
+        <div className="muted" style={{ textAlign: 'center', padding: 24, fontSize: 13 }}>{t('truckHistoryPrompt')}</div>
+      )}
+
+      {trips !== null && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, fontFamily: 'var(--font-num)' }}>{truck.trim().toUpperCase()}</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                {totalTrips} trips · {overTolerance} {t('monitoringDeviationLabel')}
+              </div>
+            </div>
+            {trips.length > 0 && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleExport} disabled={exporting}>
+                <I.download width="15" height="15" /> {t('monitoringExcel')}
+              </button>
+            )}
+          </div>
+
+          {trips.length === 0 ? (
+            <div className="muted" style={{ textAlign: 'center', padding: 24, fontSize: 13 }}>{t('truckHistoryEmpty')}</div>
+          ) : (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>{t('truckHistoryDate')}</th>
+                      <th style={{ padding: '6px 14px', textAlign: 'left', color: 'var(--muted)', fontWeight: 700 }}>{t('truckHistoryJetty')}</th>
+                      <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('analyticsNettoSite')}</th>
+                      <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('analyticsNettoJetty')}</th>
+                      <th style={{ padding: '6px 14px', textAlign: 'right', color: 'var(--muted)', fontWeight: 700 }}>{t('truckHistoryDeviasi')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trips.map((r) => {
+                      const over = r.deviation_pct != null && r.deviation_pct > 0.5;
+                      return (
+                        <tr key={r.trip_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '8px 14px' }}>
+                            <div style={{ fontFamily: 'var(--font-num)', fontWeight: 700 }}>{r.date}</div>
+                            <div className="muted" style={{ fontSize: 11 }}>#{r.no_tiket}</div>
+                          </td>
+                          <td style={{ padding: '8px 14px', fontSize: 12 }}>{JETTY[r.jetty_destination]}</td>
+                          <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>
+                            {formatWeight(r.netto_site_kg, unit)} {unit}
+                          </td>
+                          <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'var(--font-num)' }}>
+                            {r.netto_jetty_kg != null ? `${formatWeight(r.netto_jetty_kg, unit)} ${unit}` : '-'}
+                          </td>
+                          <td style={{ padding: '8px 14px', textAlign: 'right' }}>
+                            {r.deviation_pct != null ? (
+                              <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, color: over ? 'var(--danger)' : 'var(--accent)' }}>
+                                {r.deviation_pct}%
+                              </span>
+                            ) : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsPage({ embedded = false }) {
   const { t } = useLang();
   const today = witaToday();
@@ -378,10 +600,11 @@ export default function AnalyticsPage({ embedded = false }) {
   const [to, setTo]       = useState(today);
   const [jetty, setJetty] = useState('');
 
-  const titles = { overview: t('analyticsOverview'), monitoring: t('analyticsMonitoring') };
+  const titles = { overview: t('analyticsOverview'), monitoring: t('analyticsMonitoring'), trucks: t('truckHistoryTitle') };
   const tabs = [
     { key: 'overview',   label: t('analyticsOverview'),   icon: I.chart },
     { key: 'monitoring', label: t('analyticsMonitoring'), icon: I.warning },
+    { key: 'trucks',     label: t('truckHistoryTitle'),   icon: I.search },
   ];
 
   const filterFields = (
@@ -415,12 +638,12 @@ export default function AnalyticsPage({ embedded = false }) {
 
   const content = (
     <div className="stack" style={{ gap: 14 }}>
-      {!embedded && filters}
+      {!embedded && tab !== 'trucks' && filters}
       {embedded && (
         <div className="card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            {filterFields}
-            <div style={{ display: 'flex', gap: 6 }}>
+            {tab !== 'trucks' && filterFields}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {Object.entries(titles).map(([key, label]) => (
                 <button key={key} type="button" onClick={() => setTab(key)} style={{
                   padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1.5px solid',
@@ -433,8 +656,9 @@ export default function AnalyticsPage({ embedded = false }) {
           </div>
         </div>
       )}
-      {tab === 'overview'   && <OverviewTab   from={from} to={to} jetty={jetty} />}
-      {tab === 'monitoring' && <MonitoringTab from={from} to={to} jetty={jetty} />}
+      {tab === 'overview'   && <OverviewTab      from={from} to={to} jetty={jetty} />}
+      {tab === 'monitoring' && <MonitoringTab   from={from} to={to} jetty={jetty} />}
+      {tab === 'trucks'     && <TruckHistoryTab defaultFrom={from} defaultTo={to} />}
     </div>
   );
 

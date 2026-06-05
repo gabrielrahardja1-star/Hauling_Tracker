@@ -251,7 +251,14 @@ export const translations = {
     monitoringNoViolations: 'Tidak ada pelanggaran dalam periode ini',
     monitoringDeviationLabel: 'deviasi > 0.5%',
     monitoringSLALabel: 'SLA transit >4j',
+    monitoringDeviationTitle: 'Deviasi > 0.5%',
+    monitoringSLATitle: 'SLA Transit > 4 jam (CP2→CP3)',
     monitoringNoData: 'Tidak ada pelanggaran.',
+    monitoringNoJettyData: 'Belum ada data jetty (CP3). Akan terisi saat pengiriman selesai dicatat di jetty.',
+    monitoringPrint: 'Print',
+    monitoringExcel: 'Excel',
+    monitoringPeriod: 'Periode',
+    monitoringDari: 'dari',
     monitoringTruck: 'Truk',
     monitoringNettoSite: 'Netto Site',
     monitoringNettoJetty: 'Netto Jetty',
@@ -261,6 +268,16 @@ export const translations = {
     monitoringDuration: 'Durasi',
     monitoringJam: 'jam',
     monitoringEligible: 'pengiriman dengan data jetty',
+
+    // Truck history
+    truckHistoryTitle: 'Riwayat Truk',
+    truckHistoryPlaceholder: 'No. lambung truk',
+    truckHistorySearch: 'Cari',
+    truckHistoryEmpty: 'Tidak ada riwayat untuk truk ini',
+    truckHistoryPrompt: 'Masukkan nomor lambung untuk melihat riwayat',
+    truckHistoryDate: 'Tanggal',
+    truckHistoryJetty: 'Jetty',
+    truckHistoryDeviasi: 'Deviasi',
 
     // User management
     userTitle: 'User Management',
@@ -523,7 +540,14 @@ export const translations = {
     monitoringNoViolations: '本期内无违规记录',
     monitoringDeviationLabel: '偏差 > 0.5%',
     monitoringSLALabel: 'SLA 运输 >4小时',
+    monitoringDeviationTitle: '偏差 > 0.5%',
+    monitoringSLATitle: 'SLA 运输 > 4小时 (CP2→CP3)',
     monitoringNoData: '无违规记录。',
+    monitoringNoJettyData: '暂无码头数据 (CP3)。将在码头完成称重后显示。',
+    monitoringPrint: '打印',
+    monitoringExcel: 'Excel',
+    monitoringPeriod: '期间',
+    monitoringDari: '/',
     monitoringTruck: '车辆',
     monitoringNettoSite: '现场净重',
     monitoringNettoJetty: '码头净重',
@@ -533,6 +557,16 @@ export const translations = {
     monitoringDuration: '时长',
     monitoringJam: '小时',
     monitoringEligible: '条有码头数据的记录',
+
+    // Truck history
+    truckHistoryTitle: '车辆历史',
+    truckHistoryPlaceholder: '车辆编号',
+    truckHistorySearch: '搜索',
+    truckHistoryEmpty: '该车辆暂无历史记录',
+    truckHistoryPrompt: '请输入车辆编号查看历史',
+    truckHistoryDate: '日期',
+    truckHistoryJetty: '码头',
+    truckHistoryDeviasi: '偏差',
 
     // User management
     userTitle: '用户管理',

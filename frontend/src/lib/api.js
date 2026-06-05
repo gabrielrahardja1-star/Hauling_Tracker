@@ -96,6 +96,38 @@ export const api = {
     return request('GET', `/analytics/monitoring${q ? `?${q}` : ''}`);
   },
 
+  // Truck history
+  getTruckHistory: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/trips/truck-history?${q}`);
+  },
+
+  async exportTruckHistory(params = {}) {
+    const token = _getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const q = new URLSearchParams(params).toString();
+    const res = await fetch(`${BASE}/trips/truck-history/export?${q}`, { headers });
+    if (!res.ok) {
+      const json = await readJson(res).catch(() => ({}));
+      throw new Error(json.error || 'Export failed');
+    }
+    return res.blob();
+  },
+
+  async exportMonitoring(params = {}) {
+    const token = _getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const q = new URLSearchParams(params).toString();
+    const res = await fetch(`${BASE}/analytics/monitoring/export?${q}`, { headers });
+    if (!res.ok) {
+      const json = await readJson(res).catch(() => ({}));
+      throw new Error(json.error || 'Export failed');
+    }
+    return res.blob();
+  },
+
   // Barge loadings
   createBargeLoading: (data) => request('POST', '/barge-loadings', data),
   listBargeLoadings: (params = {}) => {

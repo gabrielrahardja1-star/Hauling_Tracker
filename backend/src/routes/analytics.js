@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import ExcelJS from 'exceljs';
 import { query } from '../lib/db.js';
 import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
@@ -217,6 +218,99 @@ router.get('/monitoring', async (req, res) => {
       breaches: slaCP2CP3.map((r) => ({ ...r, hours_cp2_cp3: Number(r.hours_cp2_cp3) })),
     },
   });
+});
+
+// GET /analytics/monitoring/export?from=&to=&jetty= — Excel for deviation breaches
+router.get('/monitoring/export', async (req, res) => {
+  const { from, to, jetty } = req.query;
+
+  const conds = [];
+  const vals  = [];
+  let idx = 1;
+  if (from)  { conds.push(`date >= $${idx++}`); vals.push(from); }
+  if (to)    { conds.push(`date <= $${idx++}`); vals.push(to); }
+  if (jetty) { conds.push(`jetty_destination = $${idx++}`); vals.push(jetty); }
+  const extra = conds.length ? `and ${conds.join(' and ')}` : '';
+
+  const [deviationBreaches, slaBreaches] = await Promise.all([
+    query(
+      `select trip_id, date::text, no_tiket, no_lambung, jetty_destination,
+         netto_site_kg, netto_jetty_kg, deviasi_kg,
+         round(abs(deviasi_kg::numeric / nullif(netto_site_kg, 0)) * 100, 2) as deviation_pct
+       from trips
+       where netto_jetty_kg is not null and netto_site_kg > 0
+         and abs(deviasi_kg::numeric / netto_site_kg) > 0.005
+         ${extra}
+       order by abs(deviasi_kg::numeric / netto_site_kg) desc`,
+      vals
+    ),
+    query(
+      `select trip_id, date::text, no_tiket, no_lambung, jetty_destination,
+         cp2_timestamp, cp3_timestamp,
+         round(extract(epoch from (cp3_timestamp - cp2_timestamp)) / 3600, 1) as hours_cp2_cp3
+       from trips
+       where cp2_timestamp is not null and cp3_timestamp is not null
+         and extract(epoch from (cp3_timestamp - cp2_timestamp)) / 3600 > 4
+         ${extra}
+       order by (cp3_timestamp - cp2_timestamp) desc`,
+      vals
+    ),
+  ]);
+
+  const workbook = new ExcelJS.Workbook();
+  const numFmt = '#,##0';
+  const center = { horizontal: 'center', vertical: 'middle' };
+  const right  = { horizontal: 'right',  vertical: 'middle' };
+
+  const toHHMM = (ts) => {
+    if (!ts) return '';
+    return new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(11, 16);
+  };
+
+  // Sheet 1: Deviation
+  const devSheet = workbook.addWorksheet('Deviasi > 0.5%');
+  const devHeader = devSheet.addRow(['No.Tiket', 'Truk', 'Tanggal', 'Jetty', 'Netto Site (kg)', 'Netto Jetty (kg)', 'Deviasi (kg)', 'Deviasi %']);
+  devHeader.font = { bold: true };
+  devHeader.eachCell((c) => { c.alignment = center; });
+  devSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  deviationBreaches.forEach((r) => {
+    const row = devSheet.addRow([
+      r.no_tiket, r.no_lambung, r.date,
+      r.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta',
+      r.netto_site_kg, r.netto_jetty_kg, r.deviasi_kg,
+      Number(r.deviation_pct),
+    ]);
+    [5, 6, 7].forEach((c) => { row.getCell(c).numFmt = numFmt; row.getCell(c).alignment = right; });
+    row.getCell(8).numFmt = '0.00"%"';
+    row.getCell(8).alignment = right;
+    row.getCell(8).font = { color: { argb: 'FFCC0000' } };
+  });
+  [8, 14, 12, 12, 16, 16, 14, 10].forEach((w, i) => { devSheet.getColumn(i + 1).width = w; });
+
+  // Sheet 2: SLA Transit
+  const slaSheet = workbook.addWorksheet('SLA Transit > 4j');
+  const slaHeader = slaSheet.addRow(['No.Tiket', 'Truk', 'Tanggal', 'Jetty', 'Keluar Site', 'Tiba Jetty', 'Durasi (jam)']);
+  slaHeader.font = { bold: true };
+  slaHeader.eachCell((c) => { c.alignment = center; });
+  slaSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  slaBreaches.forEach((r) => {
+    const row = slaSheet.addRow([
+      r.no_tiket, r.no_lambung, r.date,
+      r.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta',
+      toHHMM(r.cp2_timestamp), toHHMM(r.cp3_timestamp),
+      Number(r.hours_cp2_cp3),
+    ]);
+    row.getCell(7).font = { color: { argb: 'FFB45309' } };
+  });
+  [8, 14, 12, 12, 14, 14, 12].forEach((w, i) => { slaSheet.getColumn(i + 1).width = w; });
+
+  const label = from && to ? `${from}_${to}` : 'all';
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=monitoring_${label}.xlsx`);
+  await workbook.xlsx.write(res);
+  res.end();
 });
 
 export default router;
