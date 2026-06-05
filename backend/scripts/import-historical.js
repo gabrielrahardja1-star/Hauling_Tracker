@@ -57,6 +57,11 @@ async function parseFile(filePath) {
   await wb.xlsx.readFile(filePath);
   const sheet = wb.getWorksheet('Sheet1');
 
+  if (!sheet) {
+    console.log(`  skipping (no Sheet1 — unrecognised format)`);
+    return [];
+  }
+
   // Coal quality is in row 1 col 7
   const qualityRaw = sheet.getRow(1).getCell(7).value;
   const quality = coalQuality(qualityRaw);
@@ -127,7 +132,7 @@ async function main() {
                 cuaca_mmi, tare_site_kg, gross_site_kg, netto_site_kg,
                 cp1_timestamp, cp2_timestamp, status)
              values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-             on conflict (date, no_lambung) do nothing`,
+             on conflict (date, no_tiket) do nothing`,
             [
               t.date, t.no_tiket, t.no_lambung, t.jetty_destination,
               t.coal_quality, t.cuaca_mmi, t.tare_site_kg,
