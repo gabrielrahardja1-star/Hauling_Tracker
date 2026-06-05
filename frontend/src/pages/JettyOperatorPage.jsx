@@ -291,6 +291,10 @@ export default function JettyOperatorPage() {
 
       {tab === 'cp3' && (
         <div className="stack" style={{ gap: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', letterSpacing: 0.2 }}>
+            {new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}
+          </div>
+
           {success && (
             <Banner
               title={t('cp3BannerTitle')}
