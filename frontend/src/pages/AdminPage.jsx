@@ -16,6 +16,12 @@ import { api } from '../lib/api';
 import { useSortFilter } from '../lib/useSortFilter';
 import { useLang } from '../hooks/useLang';
 
+function subtractDays(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() - days);
+  return d.toISOString().split('T')[0];
+}
+
 function EditCell({ value, type = 'text', options, onSave }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? '');
@@ -178,7 +184,8 @@ function UserModal({ onClose }) {
 
 export default function AdminPage() {
   const { t } = useLang();
-  const [filters, setFilters] = useState({ date: witaToday(), jetty: '', status: '' });
+  const today = witaToday();
+  const [filters, setFilters] = useState({ from: today, to: today, jetty: '', status: '' });
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
@@ -195,9 +202,10 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const params = {};
-      if (filters.date) params.date = filters.date;
-      if (filters.jetty) params.jetty = filters.jetty;
-      if (filters.status) params.status = filters.status;
+      if (filters.from)   params.date_from = filters.from;
+      if (filters.to)     params.date_to   = filters.to;
+      if (filters.jetty)  params.jetty     = filters.jetty;
+      if (filters.status) params.status    = filters.status;
       setTrips(await api.listTrips(params));
     } catch (e) {
       console.error(e);
@@ -208,11 +216,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     const jetty = filters.jetty;
-    const date  = filters.date;
+    const from  = filters.from;
+    const to    = filters.to;
 
-    const dayBargeParams  = { ...(jetty && { jetty }), ...(date && { from: date, to: date }) };
-    const cumBargeParams  = { ...(jetty && { jetty }), ...(date && { to: date }) };
-    const cumTripParams   = { status: 'completed', ...(jetty && { jetty }), ...(date && { date_to: date }) };
+    const dayBargeParams  = { ...(jetty && { jetty }), ...(from && { from }), ...(to && { to }) };
+    const cumBargeParams  = { ...(jetty && { jetty }), ...(to && { to }) };
+    const cumTripParams   = { status: 'completed', ...(jetty && { jetty }), ...(to && { date_to: to }) };
 
     Promise.all([
       api.listBargeLoadings(dayBargeParams),
@@ -223,24 +232,24 @@ export default function AdminPage() {
       setCumulativeBargeTotal(cumBargeRows.reduce((s, r) => s + (Number(r.loading_qty_kg) || 0), 0));
       setCumulativeNettoJetty(tripRows.reduce((s, r) => s + (Number(r.netto_site_kg) || 0), 0));
     }).catch(() => {});
-  }, [filters.date, filters.jetty]);
+  }, [filters.from, filters.to, filters.jetty]);
 
   useEffect(() => {
     fetchTrips();
   }, [fetchTrips]);
 
   async function handleExport() {
-    if (!filters.date || !filters.jetty) {
-      alert('Please select both a date and a jetty to export');
+    if (!filters.from || !filters.to || !filters.jetty) {
+      alert('Please select a date range and a jetty to export');
       return;
     }
     setExportLoading(true);
     try {
-      const blob = await api.exportTrips(filters.date, filters.jetty);
+      const blob = await api.exportTrips(filters.from, filters.to, filters.jetty);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `trips_${filters.date}_${filters.jetty}.xlsx`;
+      a.download = `trips_${filters.from}_${filters.to}_${filters.jetty}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -295,7 +304,7 @@ export default function AdminPage() {
           <I.anchor width="18" height="18" />
           {t('navJetty')}
         </a>
-        <button onClick={handleExport} disabled={exportLoading || !filters.date || !filters.jetty} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
+        <button onClick={handleExport} disabled={exportLoading || !filters.from || !filters.to || !filters.jetty} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
           {exportLoading ? <Spinner className="h-4 w-4" /> : <I.download width="18" height="18" />}
           {t('navExport')}
         </button>
@@ -304,8 +313,11 @@ export default function AdminPage() {
       <div className="card stack" style={{ gap: 12 }}>
         <div className="section-label">{t('filters')}</div>
         <div className="filter-grid">
-          <Field label={t('filterDate')}>
-            <input type="date" className="input" value={filters.date} onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value }))} />
+          <Field label={t('analyticsFrom')}>
+            <input type="date" className="input" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
+          </Field>
+          <Field label={t('analyticsTo')}>
+            <input type="date" className="input" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
           </Field>
           <Field label={t('filterJetty')}>
             <select className="input" value={filters.jetty} onChange={(e) => setFilters((f) => ({ ...f, jetty: e.target.value }))}>

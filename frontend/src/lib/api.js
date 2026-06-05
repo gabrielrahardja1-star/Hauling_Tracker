@@ -68,11 +68,11 @@ export const api = {
   updateTrip: (id, data) => request('PATCH', `/trips/${id}`, data),
 
   // Admin: Excel export
-  async exportTrips(date, jetty) {
+  async exportTrips(from, to, jetty) {
     const token = _getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/trips/export?date=${date}&jetty=${jetty}`, { headers });
+    const res = await fetch(`${BASE}/trips/export?from=${from}&to=${to}&jetty=${jetty}`, { headers });
     if (!res.ok) {
       const json = await readJson(res).catch(() => ({}));
       throw new Error(json.error || 'Export failed');

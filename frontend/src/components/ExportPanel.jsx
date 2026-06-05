@@ -7,7 +7,9 @@ import { useLang } from '../hooks/useLang';
 
 export default function ExportPanel() {
   const { t } = useLang();
-  const [date, setDate] = useState(witaToday());
+  const today = witaToday();
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
   const [jetty, setJetty] = useState('hasnur');
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,15 +20,14 @@ export default function ExportPanel() {
     setLoading(true);
     setError('');
     try {
-      const all = await api.getTodayTrips(jetty);
-      const today = witaToday();
-      setTrips(date === today ? all.filter((t) => t.jetty_destination === jetty || !jetty) : []);
+      const rows = await api.listTrips({ date_from: from, date_to: to, jetty, status: 'completed' });
+      setTrips(rows);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [date, jetty]);
+  }, [from, to, jetty]);
 
   useEffect(() => {
     fetchTrips();
@@ -35,11 +36,11 @@ export default function ExportPanel() {
   async function handleExport() {
     setExporting(true);
     try {
-      const blob = await api.exportTrips(date, jetty);
+      const blob = await api.exportTrips(from, to, jetty);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `trips_${date}_${jetty}.xlsx`;
+      a.download = `trips_${from}_${to}_${jetty}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -78,8 +79,11 @@ export default function ExportPanel() {
     <div className="stack" style={{ gap: 14 }}>
       <div className="card stack" style={{ gap: 14 }}>
         <div className="filter-grid">
-          <Field label={t('exportDate')}>
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Field label={t('analyticsFrom')}>
+            <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </Field>
+          <Field label={t('analyticsTo')}>
+            <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
           <Field label={t('exportJetty')}>
             <select className="input" value={jetty} onChange={(e) => setJetty(e.target.value)}>

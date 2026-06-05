@@ -161,16 +161,16 @@ router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res)
   res.json(trips);
 });
 
-// GET /trips/export?date=&jetty= — Excel export (all roles)
+// GET /trips/export?from=&to=&jetty= — Excel export (all roles)
 router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
-  const { date, jetty } = req.query;
-  if (!date || !jetty) return res.status(400).json({ error: 'date and jetty are required' });
+  const { from, to, jetty } = req.query;
+  if (!from || !to || !jetty) return res.status(400).json({ error: 'from, to and jetty are required' });
 
   const trips = await query(
     `select * from trips
-     where date = $1 and jetty_destination = $2 and status = 'completed'
-     order by no_tiket asc`,
-    [date, jetty]
+     where date >= $1 and date <= $2 and jetty_destination = $3 and status = 'completed'
+     order by date asc, no_tiket asc`,
+    [from, to, jetty]
   );
 
   const workbook = new ExcelJS.Workbook();
@@ -190,20 +190,24 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const rightAlign  = { horizontal: 'right',  vertical: 'middle' };
   const leftAlign   = { horizontal: 'left',   vertical: 'middle' };
 
-  const [year, month, day] = date.split('-');
+  const [fy, fm, fd] = from.split('-');
+  const [ty, tm, td] = to.split('-');
+  const titleDate = from === to
+    ? `${fy}年${fm}月${fd}日运煤明细`
+    : `${fy}年${fm}月${fd}日 - ${ty}年${tm}月${td}日运煤明细`;
+  const dateRange = from === to ? from : `${from} ~ ${to}`;
 
   // Row 1 — title
-  sheet.addRow([`${year}年${month}月${day}日运煤明细`]);
+  sheet.addRow([titleDate]);
   sheet.mergeCells(1, 1, 1, TOTAL_COLS);
   sheet.getRow(1).height = 28;
   sheet.getRow(1).getCell(1).alignment = centerAlign;
   sheet.getRow(1).font = { bold: true, size: 16 };
 
-  // Row 2 — date
-  sheet.addRow([new Date(date)]);
+  // Row 2 — date range
+  sheet.addRow([dateRange]);
   sheet.mergeCells(2, 1, 2, TOTAL_COLS);
   sheet.getRow(2).height = 20;
-  sheet.getRow(2).getCell(1).numFmt = 'yyyy-mm-dd';
   sheet.getRow(2).getCell(1).alignment = centerAlign;
   sheet.getRow(2).font = { size: 11 };
 
@@ -297,7 +301,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=trips_${date}_${jetty}.xlsx`);
+  res.setHeader('Content-Disposition', `attachment; filename=trips_${from}_${to}_${jetty}.xlsx`);
   await workbook.xlsx.write(res);
   res.end();
 });
@@ -397,16 +401,17 @@ router.get('/truck-history/export', requireRole('analytics', 'admin'), async (re
 
 // GET /trips — admin list with filters
 router.get('/', requireRole('admin'), async (req, res) => {
-  const { date, date_to, jetty, status } = req.query;
+  const { date, date_from, date_to, jetty, status } = req.query;
 
   const conditions = [];
   const values = [];
   let idx = 1;
 
-  if (date)    { conditions.push(`date = $${idx++}`);               values.push(date); }
-  if (date_to) { conditions.push(`date <= $${idx++}`);              values.push(date_to); }
-  if (jetty)   { conditions.push(`jetty_destination = $${idx++}`);  values.push(jetty); }
-  if (status)  { conditions.push(`status = $${idx++}`);             values.push(status); }
+  if (date)      { conditions.push(`date = $${idx++}`);               values.push(date); }
+  if (date_from) { conditions.push(`date >= $${idx++}`);              values.push(date_from); }
+  if (date_to)   { conditions.push(`date <= $${idx++}`);              values.push(date_to); }
+  if (jetty)     { conditions.push(`jetty_destination = $${idx++}`);  values.push(jetty); }
+  if (status)    { conditions.push(`status = $${idx++}`);             values.push(status); }
 
   const where = conditions.length ? `where ${conditions.join(' and ')}` : '';
   const trips = await query(
