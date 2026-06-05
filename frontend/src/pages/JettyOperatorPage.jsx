@@ -130,7 +130,7 @@ function BargePanel({ defaultJetty }) {
               <div key={l.loading_id} className="between" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{l.barge_name}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>Tug: {l.tug_boat_name} · {JETTY[l.jetty]} · {l.loading_date}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>Tug: {l.tug_boat_name} · {JETTY[l.jetty]} · {String(l.loading_date).slice(0, 10)}</div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 15, textAlign: 'right' }}>
                   {fw(l.loading_qty_kg)} <span className="muted" style={{ fontSize: 11 }}>{unit}</span>
