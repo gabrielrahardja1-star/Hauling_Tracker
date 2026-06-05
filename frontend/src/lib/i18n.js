@@ -61,7 +61,7 @@ export const translations = {
     colDeviasi: 'Deviasi',
     colAdjustment: 'Adjustment',
     colCP2: 'Jam Keluar',
-    colCP3: 'CP3',
+    colCP3: 'Sampai Jetty',
 
     // Trips table
     trips: 'Trips',
@@ -352,7 +352,7 @@ export const translations = {
     colDeviasi: '偏差',
     colAdjustment: '调整',
     colCP2: '离开时间',
-    colCP3: 'CP3',
+    colCP3: '抵达码头',
 
     // Trips table
     trips: '运输记录',
