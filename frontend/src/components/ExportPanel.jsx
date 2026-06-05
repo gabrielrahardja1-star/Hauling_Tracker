@@ -53,11 +53,11 @@ export default function ExportPanel() {
   const SEARCH_FIELDS = useMemo(() => ['no_lambung', 'no_tiket', 'status'], []);
   const { result: displayTrips, sortKey, sortDir, toggleSort, search, setSearch } = useSortFilter(trips, SEARCH_FIELDS);
 
-  const totals = displayTrips.reduce((acc, t) => ({
-    tare: acc.tare + (t.tare_site_kg || 0),
-    gross_site: acc.gross_site + (t.gross_site_kg || 0),
-    netto_site: acc.netto_site + (t.netto_site_kg || 0),
-    netto_jetty: acc.netto_jetty + (t.netto_jetty_kg || 0),
+  const totals = displayTrips.reduce((acc, r) => ({
+    tare: acc.tare + (r.tare_site_kg || 0),
+    gross_site: acc.gross_site + (r.gross_site_kg || 0),
+    netto_site: acc.netto_site + (r.netto_site_kg || 0),
+    netto_jetty: acc.netto_jetty + (r.netto_jetty_kg || 0),
   }), { tare: 0, gross_site: 0, netto_site: 0, netto_jetty: 0 });
 
   const COLS = [
@@ -117,7 +117,7 @@ export default function ExportPanel() {
       <div className="card flush">
         <div className="list-head">
           <div>
-            <div className="lh-title">{jetty === 'hasnur' ? 'Hasnur' : 'Talenta'} - {date}</div>
+            <div className="lh-title">{jetty === 'hasnur' ? 'Hasnur' : 'Talenta'} · {from === to ? from : `${from} — ${to}`}</div>
             <div className="lh-sub">{displayTrips.length} {t('of')} {trips.length} {t('exportTruk')}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -151,20 +151,20 @@ export default function ExportPanel() {
                 </tr>
               </thead>
               <tbody>
-                {displayTrips.map((t) => (
-                  <tr key={t.trip_id}>
-                    <td>{t.no_tiket}</td>
-                    <td style={{ fontWeight: 800 }}>{t.no_lambung}</td>
-                    <td><StatusPill status={t.status} short /></td>
-                    <td style={{ textAlign: 'right' }}>{kg(t.tare_site_kg)}</td>
-                    <td style={{ textAlign: 'right' }}>{kg(t.gross_site_kg)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}>{kg(t.netto_site_kg)}</td>
-                    <td style={{ textAlign: 'right' }}>{kg(t.gross_jetty_kg)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{kg(t.netto_jetty_kg)}</td>
-                    <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{kg(t.deviasi_kg)}</td>
-                    <td>{toWITA(t.cp1_timestamp)}</td>
-                    <td>{toWITA(t.cp2_timestamp)}</td>
-                    <td>{toWITA(t.cp3_timestamp)}</td>
+                {displayTrips.map((r) => (
+                  <tr key={r.trip_id}>
+                    <td>{r.no_tiket}</td>
+                    <td style={{ fontWeight: 800 }}>{r.no_lambung}</td>
+                    <td><StatusPill status={r.status} short /></td>
+                    <td style={{ textAlign: 'right' }}>{kg(r.tare_site_kg)}</td>
+                    <td style={{ textAlign: 'right' }}>{kg(r.gross_site_kg)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}>{kg(r.netto_site_kg)}</td>
+                    <td style={{ textAlign: 'right' }}>{kg(r.gross_jetty_kg)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{kg(r.netto_jetty_kg)}</td>
+                    <td style={{ textAlign: 'right', color: r.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{kg(r.deviasi_kg)}</td>
+                    <td>{toWITA(r.cp1_timestamp)}</td>
+                    <td>{toWITA(r.cp2_timestamp)}</td>
+                    <td>{toWITA(r.cp3_timestamp)}</td>
                   </tr>
                 ))}
                 <tr>
