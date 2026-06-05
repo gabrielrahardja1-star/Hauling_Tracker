@@ -142,7 +142,7 @@ function OverviewTab({ from, to, jetty }) {
   return (
     <div className="stack" style={{ gap: 14 }}>
       {/* Top stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+      <div className="analytics-stat-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <div className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
           <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>{t('analyticsHauled')}</div>
           <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20, marginTop: 4 }}>{formatWeight(hauling.total_netto_kg, unit)}</div>
@@ -164,12 +164,12 @@ function OverviewTab({ from, to, jetty }) {
 
       {/* Per-jetty breakdown */}
       <div className="section-label">{t('analyticsPerJetty')}</div>
-      <TalentaCard
-        nettoSiteKg={hauling.by_jetty.talenta?.netto_kg}
-        nettoJettyKg={hauling.by_jetty.talenta?.netto_jetty_kg}
-        bargedKg={barge.by_jetty.talenta?.qty_kg}
-      />
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div className="analytics-jetty-row" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <TalentaCard
+          nettoSiteKg={hauling.by_jetty.talenta?.netto_kg}
+          nettoJettyKg={hauling.by_jetty.talenta?.netto_jetty_kg}
+          bargedKg={barge.by_jetty.talenta?.qty_kg}
+        />
         <JettyBalanceCard
           label="Hasnur"
           hauledLabel={t('analyticsNettoSite')}
@@ -628,17 +628,50 @@ export default function AnalyticsPage({ embedded = false }) {
     </>
   );
 
-  const filters = (
+  const sidebarFilters = (
     <div className="card" style={{ marginBottom: 0 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+        {t('analyticsFilters') || 'Filters'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filterFields}
+      </div>
+    </div>
+  );
+
+  const tabNav = (
+    <div className="card" style={{ marginBottom: 0 }}>
+      <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+        {t('analyticsView') || 'View'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {tabs.map((s) => (
+          <button key={s.key} type="button" onClick={() => setTab(s.key)} style={{
+            width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+            border: '1.5px solid', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+            borderColor: tab === s.key ? 'var(--accent)' : 'var(--border)',
+            background: tab === s.key ? 'var(--accent-subtle, #f0fdf4)' : 'var(--surface)',
+            color: tab === s.key ? 'var(--accent)' : 'var(--fg)', cursor: 'pointer',
+          }}>
+            <s.icon width="15" height="15" />
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const mobileFilters = (
+    <div className="analytics-filters-mobile card" style={{ marginBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {tab !== 'trucks' && filterFields}
       </div>
     </div>
   );
 
   const content = (
     <div className="stack" style={{ gap: 14 }}>
-      {!embedded && tab !== 'trucks' && filters}
+      {!embedded && tab !== 'trucks' && mobileFilters}
       {embedded && (
         <div className="card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -667,9 +700,18 @@ export default function AnalyticsPage({ embedded = false }) {
   return (
     <Layout
       title={titles[tab]}
+      wide
       footer={<BottomTabs tabs={tabs} active={tab} onChange={setTab} />}
     >
-      {content}
+      <div className="analytics-layout">
+        <div className="analytics-sidebar">
+          {tabNav}
+          {tab !== 'trucks' && sidebarFilters}
+        </div>
+        <div className="analytics-main">
+          {content}
+        </div>
+      </div>
     </Layout>
   );
 }
