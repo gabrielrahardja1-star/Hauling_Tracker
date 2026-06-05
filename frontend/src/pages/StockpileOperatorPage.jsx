@@ -395,25 +395,61 @@ export default function StockpileOperatorPage() {
     { key: 'analytics', label: t('tabAnalytics'), icon: I.chart },
   ];
 
+  const sidebarNav = (
+    <div className="card" style={{ marginBottom: 0 }}>
+      <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+        {t('tabNav') || 'Menu'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {tabs.map((s) => (
+          <button key={s.key} type="button" onClick={() => setTab(s.key)} style={{
+            width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+            border: '1.5px solid', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
+            borderColor: tab === s.key ? 'var(--accent)' : 'var(--border)',
+            background: tab === s.key ? 'var(--accent-subtle, #f0fdf4)' : 'var(--surface)',
+            color: tab === s.key ? 'var(--accent)' : 'var(--fg)', cursor: 'pointer',
+          }}>
+            <s.icon width="15" height="15" />
+            {s.label}
+            {s.badge > 0 && (
+              <span style={{ marginLeft: 'auto', background: 'var(--danger)', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10 }}>
+                {s.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <Layout
       title={titles[tab]}
-      footer={<BottomTabs tabs={tabs} active={tab} onChange={setTab} />}
+      wide
+      footer={<div className="op-bottom-tabs-only"><BottomTabs tabs={tabs} active={tab} onChange={setTab} /></div>}
     >
-      {tab === 'cp1' && (
-        <>
-          <CP1Form onSuccess={fetchTrips} />
-          <TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} />
-        </>
-      )}
-      {tab === 'cp2' && (
-        <CP2Form onSuccess={fetchTrips} pendingTrips={pendingTrips} tripsLoading={tripsLoading} />
-      )}
-      {tab === 'trips' && (
-        <TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} />
-      )}
-      {tab === 'export' && <ExportPanel />}
-      {tab === 'analytics' && <AnalyticsPage embedded />}
+      <div className="op-layout">
+        <div className="op-sidebar">{sidebarNav}</div>
+        <div className="op-main">
+          {tab === 'cp1' && (
+            <div className="op-two-col">
+              <div className="op-col-form"><CP1Form onSuccess={fetchTrips} /></div>
+              <div className="op-col-list"><TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} /></div>
+            </div>
+          )}
+          {tab === 'cp2' && (
+            <div className="op-two-col">
+              <div className="op-col-form"><CP2Form onSuccess={fetchTrips} pendingTrips={pendingTrips} tripsLoading={tripsLoading} /></div>
+              <div className="op-col-list"><TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} /></div>
+            </div>
+          )}
+          {tab === 'trips' && (
+            <TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} />
+          )}
+          {tab === 'export' && <ExportPanel />}
+          {tab === 'analytics' && <AnalyticsPage embedded />}
+        </div>
+      </div>
     </Layout>
   );
 }

@@ -1061,6 +1061,60 @@
   }
 }
 
+/* Operator & analytics desktop layout */
+.op-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.op-sidebar {
+  display: none;
+}
+
+.op-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.op-two-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.op-col-form  { flex: 1; min-width: 0; }
+.op-col-list  { flex: 1; min-width: 0; }
+
+.app-viewport-wide .op-layout {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.app-viewport-wide .op-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 210px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+}
+
+.app-viewport-wide .op-bottom-tabs-only {
+  display: none !important;
+}
+
+.app-viewport-wide .op-two-col {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.app-viewport-wide .op-col-form {
+  max-width: 400px;
+}
+
 /* Analytics desktop layout */
 .analytics-layout {
   display: flex;
