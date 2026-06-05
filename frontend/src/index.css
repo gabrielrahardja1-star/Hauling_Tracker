@@ -854,7 +854,7 @@
 }
 
 .stat-card .v {
-  font-size: clamp(13px, 3vw, 22px);
+  font-size: clamp(11px, 2.5vw, 18px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
