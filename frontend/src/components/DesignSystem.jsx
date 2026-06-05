@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Spinner from './Spinner';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 
 const WITA_OPTS = { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', hour12: false };
 
@@ -23,6 +24,12 @@ export function elapsed(ts) {
 
 export function kg(n) {
   return n == null ? '-' : Number(n).toLocaleString('id-ID');
+}
+
+export function fmtWeight(n, unit) {
+  if (n == null) return '-';
+  const val = unit === 't' ? Number(n) / 1000 : Number(n);
+  return val.toLocaleString('id-ID', unit === 't' ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {});
 }
 
 export function witaToday() {
@@ -251,10 +258,11 @@ export function DestChip({ dest }) {
   );
 }
 
-export function Weight({ value, unit = 'kg', size, accent }) {
+export function Weight({ value, size, accent }) {
+  const { unit } = useUnit();
   return (
     <div className={`weight ${size === 'lg' ? 'lg' : ''} ${accent ? 'accent' : ''}`}>
-      <span className="num">{kg(value)}</span>
+      <span className="num">{fmtWeight(value, unit)}</span>
       <span className="unit">{unit}</span>
     </div>
   );
@@ -315,6 +323,8 @@ export function InfoGrid({ items }) {
 
 export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const tappable = !!onTap;
   const El = tappable ? 'button' : 'div';
   const timeValue = time === 'cp2' ? trip.cp2_timestamp : time === 'cp3' ? trip.cp3_timestamp : trip.cp1_timestamp;
@@ -335,25 +345,25 @@ export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
         <span className="tr-sub">
           {trip.status === 'pending' ? (
             <>
-              {t('tripTara')} <b>{kg(trip.tare_site_kg)}</b> kg
+              {t('tripTara')} <b>{fw(trip.tare_site_kg)}</b> {unit}
             </>
           ) : trip.status === 'in_transit' ? (
             <>
-              {t('tripNettoSite')} <b>{kg(trip.netto_site_kg)}</b> kg
+              {t('tripNettoSite')} <b>{fw(trip.netto_site_kg)}</b> {unit}
             </>
           ) : (
             <>
-              {t('tripNetto')} <b>{kg(trip.netto_jetty_kg)}</b> kg,{' '}
+              {t('tripNetto')} <b>{fw(trip.netto_jetty_kg)}</b> {unit},{' '}
               {t('tripDev')}{' '}
               {(() => {
                 const dev = trip.deviasi_kg;
                 const base = trip.netto_site_kg;
-                if (dev == null || !base) return <span>{kg(dev)}</span>;
+                if (dev == null || !base) return <span>{fw(dev)}</span>;
                 const pct = Math.abs(dev / base) * 100;
                 const over = pct > 0.5;
                 return (
                   <b style={{ color: over ? 'var(--danger, #e53e3e)' : 'var(--accent, #16a34a)' }}>
-                    {kg(dev)} kg ({pct.toFixed(1)}%)
+                    {fw(dev)} {unit} ({pct.toFixed(1)}%)
                   </b>
                 );
               })()}
@@ -420,12 +430,13 @@ export function BottomTabs({ tabs, active, onChange }) {
   );
 }
 
-export function StatCard({ label, value, unit = 'kg', accent }) {
+export function StatCard({ label, value, accent }) {
+  const { unit } = useUnit();
   return (
     <div className="card stat-card">
       <div className="k">{label}</div>
-      <div className={`v ${accent ? 'accent' : ''}`}>{kg(value)}</div>
-      {unit && <div className="unit">{unit}</div>}
+      <div className={`v ${accent ? 'accent' : ''}`}>{fmtWeight(value, unit)}</div>
+      <div className="unit">{unit}</div>
     </div>
   );
 }

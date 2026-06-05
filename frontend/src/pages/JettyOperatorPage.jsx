@@ -4,6 +4,7 @@ import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
 import AnalyticsPage from './AnalyticsPage';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 import {
   Banner,
   BottomTabs,
@@ -17,7 +18,7 @@ import {
   TripListCard,
   Weight,
   elapsed,
-  kg,
+  fmtWeight,
   toWITA,
   witaToday,
 } from '../components/DesignSystem';
@@ -27,6 +28,8 @@ const BARGE_INITIAL = { jetty: '', barge_name: '', tug_boat_name: '', loading_da
 
 function BargePanel({ defaultJetty }) {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const [form, setForm] = useState({ ...BARGE_INITIAL, jetty: defaultJetty || '' });
   const [loadings, setLoadings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +80,7 @@ function BargePanel({ defaultJetty }) {
     <div className="stack" style={{ gap: 14 }}>
       {success && (
         <Banner title={t('bargeBannerTitle')}>
-          {success.barge_name} / {success.tug_boat_name} — {kg(success.loading_qty_kg)} kg — {JETTY[success.jetty]}
+          {success.barge_name} / {success.tug_boat_name} — {fw(success.loading_qty_kg)} {unit} — {JETTY[success.jetty]}
         </Banner>
       )}
 
@@ -130,13 +133,13 @@ function BargePanel({ defaultJetty }) {
                   <div className="muted" style={{ fontSize: 12 }}>Tug: {l.tug_boat_name} · {JETTY[l.jetty]} · {l.loading_date}</div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 15, textAlign: 'right' }}>
-                  {kg(l.loading_qty_kg)} <span className="muted" style={{ fontSize: 11 }}>kg</span>
+                  {fw(l.loading_qty_kg)} <span className="muted" style={{ fontSize: 11 }}>{unit}</span>
                 </div>
               </div>
             ))}
             <div className="between" style={{ paddingTop: 10, marginTop: 4 }}>
               <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>{t('bargeTotal')}</span>
-              <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 16 }}>{kg(totalQty)} kg</span>
+              <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 16 }}>{fw(totalQty)} {unit}</span>
             </div>
           </>
         )}
@@ -151,6 +154,8 @@ function scrollContentTop() {
 
 export default function JettyOperatorPage() {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const [tab, setTab] = useState('cp3');
   const [jettyFilter, setJettyFilter] = useState('');
   const [allTrips, setAllTrips] = useState([]);
@@ -333,7 +338,7 @@ export default function JettyOperatorPage() {
                 </button>
               }
             >
-              {success.no_lambung} - {t('cp3NettoJetty')} {kg(success.netto_jetty_kg)} kg - {t('cp3Deviasi')} {kg(success.deviasi_kg)} kg
+              {success.no_lambung} - {t('cp3NettoJetty')} {fw(success.netto_jetty_kg)} {unit} - {t('cp3Deviasi')} {fw(success.deviasi_kg)} {unit}
             </Banner>
           )}
 
@@ -376,9 +381,9 @@ export default function JettyOperatorPage() {
                 </div>
                 <InfoGrid
                   items={[
-                    { label: t('cp3NettoJetty'), value: kg(trip.netto_jetty_kg) },
-                    { label: t('cp3Deviasi'), value: `${kg(trip.deviasi_kg)} kg` },
-                    { label: t('cp3GrossJetty'), value: kg(trip.gross_jetty_kg) },
+                    { label: t('cp3NettoJetty'), value: fw(trip.netto_jetty_kg) },
+                    { label: t('cp3Deviasi'), value: `${fw(trip.deviasi_kg)} ${unit}` },
+                    { label: t('cp3GrossJetty'), value: fw(trip.gross_jetty_kg) },
                     { label: t('cp3JamMasukJetty'), value: toWITA(trip.cp3_timestamp) },
                   ]}
                 />
@@ -406,8 +411,8 @@ export default function JettyOperatorPage() {
                 </div>
                 <InfoGrid
                   items={[
-                    { label: t('cp3NettoSite'), value: kg(trip.netto_site_kg) },
-                    { label: t('cp3GrossSite'), value: kg(trip.gross_site_kg) },
+                    { label: t('cp3NettoSite'), value: fw(trip.netto_site_kg) },
+                    { label: t('cp3GrossSite'), value: fw(trip.gross_site_kg) },
                     { label: t('cp3JamMasuk'), value: toWITA(trip.cp1_timestamp) },
                     { label: t('cp3JamKeluar'), value: toWITA(trip.cp2_timestamp) },
                   ]}
@@ -439,12 +444,12 @@ export default function JettyOperatorPage() {
                     <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                       <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3DeviasVsSite')}</span>
                       <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.deviasi < 0 ? 'var(--danger)' : 'var(--st-transit-fg)' }}>
-                        {preview.deviasi > 0 ? '+' : ''}{kg(preview.deviasi)} kg
+                        {preview.deviasi > 0 ? '+' : ''}{fw(preview.deviasi)} {unit}
                       </span>
                     </div>
                     <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
                       <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareGross')}</span>
-                      <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{kg(preview.compare_gross)} kg</span>
+                      <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{fw(preview.compare_gross)} {unit}</span>
                     </div>
                   </div>
                 )}

@@ -4,6 +4,7 @@ import Spinner from '../components/Spinner';
 import ExportPanel from '../components/ExportPanel';
 import AnalyticsPage from './AnalyticsPage';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 import {
   Banner,
   BottomTabs,
@@ -17,7 +18,7 @@ import {
   StatusPill,
   TripListCard,
   Weight,
-  kg,
+  fmtWeight,
   toWITA,
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
@@ -45,6 +46,8 @@ function TodayList({ trips, loading, onRefresh, onSelectPending }) {
 
 function CP1Form({ onSuccess }) {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const [form, setForm] = useState(CP1_INITIAL);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -88,7 +91,7 @@ function CP1Form({ onSuccess }) {
     <div className="stack" style={{ gap: 14 }}>
       {success && (
         <Banner title={t('cp1BannerTitle')}>
-          Tiket #{success.no_tiket} - {success.no_lambung} - Tara {kg(success.tare_site_kg)} kg
+          Tiket #{success.no_tiket} - {success.no_lambung} - Tara {fw(success.tare_site_kg)} {unit}
         </Banner>
       )}
 
@@ -169,6 +172,8 @@ function CP1Form({ onSuccess }) {
 
 function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -251,7 +256,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             </button>
           }
         >
-          {success.no_lambung} - Netto {kg(success.netto_site_kg)} kg
+          {success.no_lambung} - Netto {fw(success.netto_site_kg)} {unit}
         </Banner>
       )}
 
@@ -295,7 +300,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
             </div>
             <InfoGrid
               items={[
-                { label: t('cp2TareSiteLabel'), value: kg(trip.tare_site_kg) },
+                { label: t('cp2TareSiteLabel'), value: fw(trip.tare_site_kg) },
                 { label: t('cp2JamMasukLabel'), value: toWITA(trip.cp1_timestamp) },
               ]}
             />

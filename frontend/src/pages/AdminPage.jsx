@@ -9,12 +9,14 @@ import {
   SortTh,
   StatusPill,
   kg,
+  fmtWeight,
   toWITA,
   witaToday,
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
 import { useSortFilter } from '../lib/useSortFilter';
 import { useLang } from '../hooks/useLang';
+import { useUnit } from '../hooks/useUnit';
 
 function subtractDays(dateStr, days) {
   const d = new Date(dateStr);
@@ -25,6 +27,7 @@ function subtractDays(dateStr, days) {
 function EditCell({ value, type = 'text', options, onSave }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? '');
+  const { unit } = useUnit();
 
   function commit(nextValue = val) {
     setEditing(false);
@@ -70,7 +73,7 @@ function EditCell({ value, type = 'text', options, onSave }) {
     />
   ) : (
     <span className="editable-cell" onDoubleClick={() => { setVal(value ?? ''); setEditing(true); }} title="Edit">
-      {value != null ? (type === 'number' ? kg(value) : value) : '-'}
+      {value != null ? (type === 'number' ? fmtWeight(value, unit) : value) : '-'}
     </span>
   );
 }
@@ -184,6 +187,8 @@ function UserModal({ onClose }) {
 
 export default function AdminPage() {
   const { t } = useLang();
+  const { unit } = useUnit();
+  const fw = (n) => fmtWeight(n, unit);
   const today = witaToday();
   const [filters, setFilters] = useState({ from: today, to: today, jetty: '', status: '' });
   const [trips, setTrips] = useState([]);
@@ -422,9 +427,9 @@ export default function AdminPage() {
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}><EditCell value={t.netto_site_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_site_kg', v)} /></td>
                     <td>{toWITA(t.cp1_timestamp)}</td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.gross_jetty_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} /></td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{kg(t.netto_jetty_kg)}</td>
-                    <td style={{ textAlign: 'right' }}>{kg(t.compare_gross_kg)}</td>
-                    <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{kg(t.deviasi_kg)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{fw(t.netto_jetty_kg)}</td>
+                    <td style={{ textAlign: 'right' }}>{fw(t.compare_gross_kg)}</td>
+                    <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{fw(t.deviasi_kg)}</td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.adjustment_kg ?? 0} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'adjustment_kg', v)} /></td>
                     <td>{toWITA(t.cp2_timestamp)}</td>
                     <td>{toWITA(t.cp3_timestamp)}</td>
