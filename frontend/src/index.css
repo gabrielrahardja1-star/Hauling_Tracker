@@ -850,11 +850,14 @@
 .stat-card {
   text-align: left;
   min-width: 0;
+  padding: 10px 10px;
 }
 
 .stat-card .v {
-  font-size: clamp(14px, 3.5vw, 22px);
-  word-break: break-all;
+  font-size: clamp(13px, 3vw, 22px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-card .v.accent {
@@ -889,8 +892,8 @@
 
 .totals-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .table-wrap {
