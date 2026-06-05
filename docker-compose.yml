@@ -16,6 +16,7 @@ services:
       - ./supabase/migrations/006_barge_loadings.sql:/docker-entrypoint-initdb.d/006_schema.sql
       - ./supabase/migrations/007_analytics_role.sql:/docker-entrypoint-initdb.d/007_schema.sql
       - ./supabase/migrations/008_add_adjustment.sql:/docker-entrypoint-initdb.d/008_schema.sql
+      - ./supabase/migrations/009_drop_unique_truck_per_day.sql:/docker-entrypoint-initdb.d/009_schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U hauling_user -d hauling_tracker"]
       interval: 5s
