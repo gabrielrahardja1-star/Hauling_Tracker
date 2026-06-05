@@ -176,7 +176,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Trips');
 
-  const TOTAL_COLS = 13;
+  const TOTAL_COLS = 14;
   const jettyLabel = jetty === 'hasnur' ? 'HBM' : 'Talenta';
 
   const toHHMM = (ts) => {
@@ -216,7 +216,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     '序号', '车号', '进入时间', '离开时间',
     '总重(MMI)', `总重(${jettyLabel})`, '相差',
     '皮重(MMI)',
-    '净重(MMI)', `净重(${jettyLabel})`, '相差',
+    '净重(MMI)', `净重(${jettyLabel})`, '相差', '偏差%',
     '天气(MMI)', '媒质',
   ]);
   chRow.height = 22;
@@ -228,7 +228,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     'No. Tiket', 'No Lambung', 'Jam Masuk (WITA)', 'Jam Keluar (WITA)',
     'Gross Site (KG)', `Gross ${jettyLabel} (KG)`, 'Compare Gross',
     'Tare Site (KG)',
-    'Netto Site (KG)', `Netto ${jettyLabel} (KG)`, 'Deviasi (KG)',
+    'Netto Site (KG)', `Netto ${jettyLabel} (KG)`, 'Deviasi (KG)', 'Deviasi (%)',
     'Cuaca (MMI)', 'Coal quality',
   ]);
   idRow.height = 22;
@@ -251,6 +251,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     sumNettoJetty   += t.netto_jetty_kg   || 0;
     sumDeviasi      += t.deviasi_kg       || 0;
 
+    const devPct = t.netto_site_kg ? Math.abs(t.deviasi_kg / t.netto_site_kg) * 100 : null;
     const dataRow = sheet.addRow([
       t.no_tiket,
       t.no_lambung,
@@ -263,6 +264,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
       t.netto_site_kg,
       t.netto_jetty_kg,
       t.deviasi_kg,
+      devPct != null ? Math.round(devPct * 100) / 100 : null,
       t.cuaca_mmi,
       t.coal_quality === 'raw' ? '原煤' : '精煤',
     ]);
@@ -272,20 +274,23 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     dataRow.getCell(2).alignment  = centerAlign;
     dataRow.getCell(3).alignment  = centerAlign;
     dataRow.getCell(4).alignment  = centerAlign;
-    dataRow.getCell(12).alignment = leftAlign;
-    dataRow.getCell(13).alignment = centerAlign;
+    dataRow.getCell(13).alignment = leftAlign;
+    dataRow.getCell(14).alignment = centerAlign;
     // Number format for KG columns
     [5,6,7,8,9,10,11].forEach((c) => {
       dataRow.getCell(c).numFmt = numFmt;
       dataRow.getCell(c).alignment = rightAlign;
     });
+    dataRow.getCell(12).numFmt = '0.00"%"';
+    dataRow.getCell(12).alignment = rightAlign;
   });
 
   // Totals row
+  const totalDevPct = sumNettoSite ? Math.round(Math.abs(sumDeviasi / sumNettoSite) * 10000) / 100 : null;
   const totalsRow = sheet.addRow([
     '', '总计 / TOTAL', '', '',
     sumGrossSite, sumGrossJetty, sumCompareGross,
-    sumTareSite, sumNettoSite, sumNettoJetty, sumDeviasi,
+    sumTareSite, sumNettoSite, sumNettoJetty, sumDeviasi, totalDevPct,
     '', '',
   ]);
   totalsRow.height = 22;
@@ -295,9 +300,11 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     totalsRow.getCell(c).numFmt = numFmt;
     totalsRow.getCell(c).alignment = rightAlign;
   });
+  totalsRow.getCell(12).numFmt = '0.00"%"';
+  totalsRow.getCell(12).alignment = rightAlign;
 
-  // Column widths (wider)
-  const colWidths = [10, 20, 20, 20, 18, 18, 16, 16, 16, 16, 16, 18, 14];
+  // Column widths
+  const colWidths = [10, 20, 20, 20, 18, 18, 16, 16, 16, 16, 16, 12, 18, 14];
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
