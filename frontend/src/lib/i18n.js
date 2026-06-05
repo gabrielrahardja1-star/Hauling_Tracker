@@ -54,13 +54,13 @@ export const translations = {
     colTareSite: 'Tare Site',
     colGrossSite: 'Gross Site',
     colNettoSite: 'Netto Site',
-    colCP1: 'CP1',
+    colCP1: 'Jam Masuk',
     colGrossJetty: 'Gross Jetty',
     colNettoJetty: 'Netto Jetty',
     colCompGross: 'Comp.Gross',
     colDeviasi: 'Deviasi',
     colAdjustment: 'Adjustment',
-    colCP2: 'CP2',
+    colCP2: 'Jam Keluar',
     colCP3: 'CP3',
 
     // Trips table
@@ -345,13 +345,13 @@ export const translations = {
     colTareSite: '皮重',
     colGrossSite: '现场毛重',
     colNettoSite: '现场净重',
-    colCP1: 'CP1',
+    colCP1: '进入时间',
     colGrossJetty: '码头毛重',
     colNettoJetty: '码头净重',
     colCompGross: '毛重对比',
     colDeviasi: '偏差',
     colAdjustment: '调整',
-    colCP2: 'CP2',
+    colCP2: '离开时间',
     colCP3: 'CP3',
 
     // Trips table
