@@ -5,7 +5,10 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '../../Historical Hauling Data ');
+const DATA_DIRS = [
+  join(__dirname, '../../Historical Hauling Data '),
+  join(__dirname, '../../Fw_ Rekap Hauling MMI'),
+];
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL || 'postgres:///hauling_tracker',
@@ -108,17 +111,22 @@ async function parseFile(filePath) {
 async function main() {
   const client = await pool.connect();
   try {
-    const files = (await readdir(DATA_DIR))
-      .filter(f => f.endsWith('.xlsx') && !f.startsWith('~$'))
-      .sort();
+    const allFiles = [];
+    for (const dir of DATA_DIRS) {
+      const names = (await readdir(dir))
+        .filter(f => f.endsWith('.xlsx') && !f.startsWith('~$'))
+        .sort();
+      allFiles.push(...names.map(f => join(dir, f)));
+    }
 
-    console.log(`Found ${files.length} files in ${DATA_DIR}`);
+    console.log(`Found ${allFiles.length} files across ${DATA_DIRS.length} directories`);
 
     let totalInserted = 0;
     let totalSkipped = 0;
 
-    for (const file of files) {
-      const trips = await parseFile(join(DATA_DIR, file));
+    for (const filePath of allFiles) {
+      const trips = await parseFile(filePath);
+      const file = filePath.split('/').pop();
       console.log(`\n${file}: ${trips.length} trips for ${trips[0]?.date}`);
 
       let inserted = 0;
@@ -126,13 +134,14 @@ async function main() {
 
       for (const t of trips) {
         try {
-          await client.query(
+          const res = await client.query(
             `insert into trips
                (date, no_tiket, no_lambung, jetty_destination, coal_quality,
                 cuaca_mmi, tare_site_kg, gross_site_kg, netto_site_kg,
                 cp1_timestamp, cp2_timestamp, status)
              values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-             on conflict (date, no_tiket) do nothing`,
+             on conflict (date, no_tiket) do nothing
+             returning trip_id`,
             [
               t.date, t.no_tiket, t.no_lambung, t.jetty_destination,
               t.coal_quality, t.cuaca_mmi, t.tare_site_kg,
@@ -140,7 +149,7 @@ async function main() {
               t.cp1_timestamp, t.cp2_timestamp, t.status,
             ]
           );
-          inserted++;
+          if (res.rowCount > 0) inserted++; else skipped++;
         } catch (err) {
           console.warn(`  skip ${t.no_lambung} ${t.date}: ${err.message}`);
           skipped++;
