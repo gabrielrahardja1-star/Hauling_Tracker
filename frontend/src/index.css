@@ -1077,36 +1077,37 @@
   min-width: 0;
 }
 
-@media (min-width: 720px) {
-  .analytics-layout {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 18px;
-  }
+.analytics-jetty-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-  .analytics-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 240px;
-    flex-shrink: 0;
-    position: sticky;
-    top: 16px;
-  }
+/* Only activate desktop layout inside the wide viewport card */
+.app-viewport-wide .analytics-layout {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 18px;
+}
 
-  .analytics-filters-mobile {
-    display: none !important;
-  }
+.app-viewport-wide .analytics-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 240px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+}
 
-  .analytics-stat-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
+.app-viewport-wide .analytics-filters-mobile {
+  display: none !important;
+}
 
-  .analytics-jetty-row {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 12px !important;
-  }
+.app-viewport-wide .analytics-jetty-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
