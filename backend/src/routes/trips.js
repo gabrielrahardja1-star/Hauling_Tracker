@@ -399,8 +399,8 @@ router.get('/truck-history/export', requireRole('analytics', 'admin'), async (re
   res.end();
 });
 
-// GET /trips — admin list with filters
-router.get('/', requireRole('admin'), async (req, res) => {
+// GET /trips — admin/jetty_operator list with filters
+router.get('/', requireRole('admin', 'jetty_operator'), async (req, res) => {
   const { date, date_from, date_to, jetty, status } = req.query;
 
   const conditions = [];

@@ -156,6 +156,11 @@ export default function JettyOperatorPage() {
   const [allTrips, setAllTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
 
+  const [dateFrom, setDateFrom] = useState(witaToday);
+  const [dateTo, setDateTo] = useState(witaToday);
+  const [rangeTrips, setRangeTrips] = useState([]);
+  const [rangeLoading, setRangeLoading] = useState(false);
+
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -182,6 +187,21 @@ export default function JettyOperatorPage() {
     const interval = setInterval(fetchTrips, 30000);
     return () => clearInterval(interval);
   }, [fetchTrips]);
+
+  const fetchRangeTrips = useCallback(async () => {
+    setRangeLoading(true);
+    try {
+      const params = { date_from: dateFrom, date_to: dateTo };
+      if (jettyFilter) params.jetty = jettyFilter;
+      setRangeTrips(await api.listTrips(params));
+    } catch {
+      /* silent */
+    } finally {
+      setRangeLoading(false);
+    }
+  }, [dateFrom, dateTo, jettyFilter]);
+
+  useEffect(() => { fetchRangeTrips(); }, [fetchRangeTrips]);
 
   function selectTrip(t) {
     setTrip(t);
@@ -249,7 +269,8 @@ export default function JettyOperatorPage() {
   } : null;
 
   const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
-  const inTransitCount = allTrips.filter((t) => t.status === 'in_transit').length;
+  const incomingTrips = displayTrips.filter((t) => t.status === 'in_transit');
+  const inTransitCount = incomingTrips.length;
   const titles = { cp3: t('tabTimbang'), trips: t('todayTitle'), barge: t('tabBarge'), export: t('tabEkspor'), analytics: t('tabAnalytics') };
   const tabs = [
     { key: 'cp3', label: t('tabTimbang'), icon: I.scale, badge: inTransitCount },
@@ -291,8 +312,16 @@ export default function JettyOperatorPage() {
 
       {tab === 'cp3' && (
         <div className="stack" style={{ gap: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', letterSpacing: 0.2 }}>
-            {new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}
+          {/* date range header */}
+          <div className="card" style={{ padding: '10px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
+              {new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}
+            </div>
+            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+              <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>–</span>
+              <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
           </div>
 
           {success && (
@@ -440,10 +469,22 @@ export default function JettyOperatorPage() {
               <TripListCard
                 title={t('cp3QueueTitle')}
                 sub={`${inTransitCount} ${t('cp3QueueSub')}`}
-                trips={displayTrips}
+                trips={incomingTrips}
                 loading={tripsLoading}
                 right={filterControl}
                 onRefresh={fetchTrips}
+                getTap={(tr) => () => selectTrip(tr)}
+                cta={t('cp3Weigh')}
+                empty="Tidak ada truk dalam perjalanan"
+              />
+
+              <div className="section-label" style={{ marginTop: 4 }}>Semua Trip — {dateFrom === dateTo ? dateFrom : `${dateFrom} s/d ${dateTo}`}</div>
+              <TripListCard
+                title="Riwayat Trip"
+                sub={`${rangeTrips.length} trip`}
+                trips={rangeTrips}
+                loading={rangeLoading}
+                onRefresh={fetchRangeTrips}
                 getTap={(tr) => (tr.status === 'in_transit' ? () => selectTrip(tr) : null)}
                 cta={t('cp3Weigh')}
               />
