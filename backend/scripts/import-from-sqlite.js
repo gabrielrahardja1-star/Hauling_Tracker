@@ -44,16 +44,14 @@ async function main() {
           `UPDATE trips SET
             gross_jetty_kg = $1, netto_jetty_kg = $2,
             compare_gross_kg = $3, deviasi_kg = $4,
-            cp3_timestamp = $5, jetty_date = $6,
-            status = 'completed'
-          WHERE trip_id = $7`,
+            cp3_timestamp = $5, status = 'completed'
+          WHERE trip_id = $6`,
           [
             r.gross_jetty_kg,
             r.netto_jetty_kg,
             r.compare_gross_kg,
             r.deviasi_kg,
             witaToUtc(r.jetty_dt),
-            r.site_date,
             existing[0].trip_id,
           ]
         );
@@ -67,9 +65,9 @@ async function main() {
           jetty_destination, coal_quality, cuaca_mmi,
           tare_site_kg, cp1_timestamp, gross_site_kg, netto_site_kg, cp2_timestamp,
           gross_jetty_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, cp3_timestamp,
-          adjustment_kg, jetty_date
+          adjustment_kg
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
         )`,
         [
           randomUUID(),
@@ -91,7 +89,6 @@ async function main() {
           r.deviasi_kg,
           witaToUtc(r.jetty_dt),
           0,
-          r.site_date,
         ]
       );
       inserted++;
