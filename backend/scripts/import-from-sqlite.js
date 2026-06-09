@@ -25,14 +25,39 @@ async function main() {
     let inserted = 0;
     let skipped  = 0;
 
+    let updated = 0;
+
     for (const r of rows) {
       const { rows: existing } = await client.query(
-        'SELECT 1 FROM trips WHERE date = $1 AND no_tiket = $2 LIMIT 1',
+        'SELECT trip_id, netto_jetty_kg FROM trips WHERE date = $1 AND no_tiket = $2 LIMIT 1',
         [r.site_date, r.site_ticket_no]
       );
 
       if (existing.length > 0) {
-        skipped++;
+        // If jetty data is already present, skip
+        if (existing[0].netto_jetty_kg !== null) {
+          skipped++;
+          continue;
+        }
+        // Patch missing jetty data from cleaned source
+        await client.query(
+          `UPDATE trips SET
+            gross_jetty_kg = $1, netto_jetty_kg = $2,
+            compare_gross_kg = $3, deviasi_kg = $4,
+            cp3_timestamp = $5, jetty_date = $6,
+            status = 'completed'
+          WHERE trip_id = $7`,
+          [
+            r.gross_jetty_kg,
+            r.netto_jetty_kg,
+            r.compare_gross_kg,
+            r.deviasi_kg,
+            witaToUtc(r.jetty_dt),
+            r.site_date,
+            existing[0].trip_id,
+          ]
+        );
+        updated++;
         continue;
       }
 
@@ -66,17 +91,17 @@ async function main() {
           r.deviasi_kg,
           witaToUtc(r.jetty_dt),
           0,
-          r.site_date,  // jetty_date same as site_date for historical data
+          r.site_date,
         ]
       );
       inserted++;
 
-      if (inserted % 100 === 0) {
-        console.log(`  progress: ${inserted} inserted, ${skipped} skipped`);
+      if ((inserted + updated) % 100 === 0) {
+        console.log(`  progress: inserted=${inserted} updated=${updated} skipped=${skipped}`);
       }
     }
 
-    console.log(`\nDone. Inserted: ${inserted}, skipped (already existed): ${skipped}`);
+    console.log(`\nDone. Inserted: ${inserted}, updated (jetty patched): ${updated}, skipped: ${skipped}`);
   } finally {
     client.release();
     await pool.end();
