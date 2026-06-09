@@ -1,7 +1,5 @@
--- Enable UUID extension
-create extension if not exists "pgcrypto";
-
 -- Enums
+-- Note: gen_random_uuid() is built-in since PostgreSQL 13, no extension needed.
 create type jetty_destination_enum as enum ('hasnur', 'talenta');
 create type coal_quality_enum      as enum ('raw', 'clean');
 create type trip_status_enum       as enum ('pending', 'in_transit', 'completed');
