@@ -5,15 +5,16 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "user:upsert": "node scripts/upsert-user.js"
+    "user:upsert": "node scripts/upsert-user.js",
+    "import:sqlite": "node scripts/import-from-sqlite.js"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.12.0"
+    "jsonwebtoken": "^9.0.2"
   }
 }
