@@ -309,6 +309,10 @@ export default function AdminPage() {
           <I.users width="18" height="18" />
           {t('navUsers')}
         </button>
+        <a href="/sessions" className="btn btn-ghost">
+          <I.shield width="18" height="18" />
+          Sessions
+        </a>
         <a href="/analytics" className="btn btn-ghost">
           <I.chart width="18" height="18" />
           {t('navAnalytics')}

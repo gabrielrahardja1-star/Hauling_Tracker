@@ -9,6 +9,7 @@ import StockpileOperatorPage from './pages/StockpileOperatorPage';
 import JettyOperatorPage from './pages/JettyOperatorPage';
 import AdminPage from './pages/AdminPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import SessionManagementPage from './pages/SessionManagementPage';
 import Spinner from './components/Spinner';
 
 const ROLE_HOME = {
@@ -70,6 +71,11 @@ function AppRoutes() {
       <Route path="/analytics" element={
         <RoleRoute roles={['stockpile_operator', 'jetty_operator', 'analytics', 'admin']}>
           <AnalyticsPage />
+        </RoleRoute>
+      } />
+      <Route path="/sessions" element={
+        <RoleRoute roles={['admin']}>
+          <SessionManagementPage />
         </RoleRoute>
       } />
       <Route path="*" element={<AuthRedirect />} />

@@ -132,9 +132,11 @@ export const api = {
   },
 
   // Sessions
-  getTodaySession: ()    => request('GET', '/sessions/today'),
-  endSession: (id)       => request('PATCH', `/sessions/${id}/end`, {}),
-  listSessions: ()       => request('GET', '/sessions'),
+  getTodaySession: ()         => request('GET', '/sessions/today'),
+  endSession: (id)            => request('PATCH', `/sessions/${id}/end`, {}),
+  listSessions: ()            => request('GET', '/sessions'),
+  lockSessionSite: (id)       => request('PATCH', `/sessions/${id}/lock-site`, {}),
+  lockSessionJetty: (id)      => request('PATCH', `/sessions/${id}/lock-jetty`, {}),
 
   // Barge loadings
   createBargeLoading: (data) => request('POST', '/barge-loadings', data),

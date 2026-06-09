@@ -64,6 +64,10 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req,
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
+  if (trip.session_id) {
+    const sess = await queryOne('select site_locked from sessions where session_id = $1', [trip.session_id]);
+    if (sess?.site_locked) return res.status(409).json({ error: 'Session site data is locked' });
+  }
   if (trip.status !== 'pending') return res.status(409).json({ error: 'Trip is not in pending status' });
 
   const netto_site_kg = gross_site_kg - trip.tare_site_kg;
@@ -91,6 +95,10 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
+  if (trip.session_id) {
+    const sess = await queryOne('select jetty_locked from sessions where session_id = $1', [trip.session_id]);
+    if (sess?.jetty_locked) return res.status(409).json({ error: 'Session jetty data is locked' });
+  }
   if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
 
   const netto_jetty_kg   = gross_jetty_kg;

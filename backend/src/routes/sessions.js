@@ -56,4 +56,38 @@ router.patch('/:id/end', requireRole('stockpile_operator', 'admin'), async (req,
   res.json(updated);
 });
 
+// PATCH /sessions/:id/lock-site — toggle site data lock (admin only)
+router.patch('/:id/lock-site', requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const session = await queryOne('select * from sessions where session_id = $1', [id]);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const locking = !session.site_locked;
+  const [updated] = await query(
+    `update sessions
+     set site_locked = $1, site_locked_at = $2
+     where session_id = $3
+     returning *`,
+    [locking, locking ? new Date() : null, id]
+  );
+  res.json(updated);
+});
+
+// PATCH /sessions/:id/lock-jetty — toggle jetty data lock (admin only)
+router.patch('/:id/lock-jetty', requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const session = await queryOne('select * from sessions where session_id = $1', [id]);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const locking = !session.jetty_locked;
+  const [updated] = await query(
+    `update sessions
+     set jetty_locked = $1, jetty_locked_at = $2
+     where session_id = $3
+     returning *`,
+    [locking, locking ? new Date() : null, id]
+  );
+  res.json(updated);
+});
+
 export default router;
