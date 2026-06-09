@@ -26,16 +26,27 @@ router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) =>
   const today = witaDate();
   const lambung = no_lambung.trim().toUpperCase();
 
+  // Find or create an active session for today (auto-grouped by date)
+  let session = await queryOne(
+    `select session_id from sessions where session_date = $1 and status = 'active'`,
+    [today]
+  );
+  if (!session) {
+    session = await queryOne(
+      `insert into sessions (session_date, status) values ($1, 'active') returning session_id`,
+      [today]
+    );
+  }
 
   const [trip] = await query(
     `with next_ticket as (
        select coalesce(max(no_tiket), 0) + 1 as no_tiket from trips where date = $1
      )
-     insert into trips (date, no_tiket, no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, cp1_timestamp, status)
-     select $1, no_tiket, $2, $3, $4, $5, $6, now(), 'pending'
+     insert into trips (date, no_tiket, no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, cp1_timestamp, status, session_id)
+     select $1, no_tiket, $2, $3, $4, $5, $6, now(), 'pending', $7
      from next_ticket
      returning *`,
-    [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg]
+    [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, session.session_id]
   );
 
   res.status(201).json(trip);

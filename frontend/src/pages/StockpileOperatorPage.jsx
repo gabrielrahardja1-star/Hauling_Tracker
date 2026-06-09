@@ -25,6 +25,81 @@ import { api } from '../lib/api';
 
 const CP1_INITIAL = { no_lambung: '', jetty_destination: '', coal_quality: '', cuaca_mmi: '', tare_site_kg: '' };
 
+function SessionBanner({ session, onEnd }) {
+  const [ending, setEnding] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!session) return null;
+
+  const isActive = session.status === 'active';
+
+  async function handleEnd() {
+    setEnding(true);
+    setError('');
+    try {
+      await onEnd(session.session_id);
+      setConfirm(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: '12px 16px', marginBottom: 16, borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
+      <div className="between" style={{ alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
+            color: isActive ? 'var(--accent)' : 'var(--muted)',
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: isActive ? 'var(--accent)' : 'var(--muted)',
+              display: 'inline-block',
+            }} />
+            {isActive ? 'Sesi Aktif' : 'Sesi Selesai'}
+          </span>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {session.trip_count ?? 0} trip
+            {session.total_netto_kg ? ` · ${(session.total_netto_kg / 1000).toFixed(1)} t` : ''}
+          </span>
+        </div>
+        {isActive && !confirm && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 12, padding: '4px 10px' }}
+            onClick={() => setConfirm(true)}
+          >
+            Akhiri Sesi
+          </button>
+        )}
+      </div>
+
+      {confirm && (
+        <div style={{ marginTop: 10 }}>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+            Akhiri sesi hari ini? Trip baru tetap bisa dicatat setelah sesi diakhiri.
+          </div>
+          {error && <div className="alert" style={{ marginBottom: 8 }}>{error}</div>}
+          <div className="row" style={{ gap: 8 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setConfirm(false); setError(''); }}>
+              Batal
+            </button>
+            <button type="button" className="btn btn-accent btn-sm" disabled={ending} onClick={handleEnd}>
+              {ending ? <Spinner className="h-4 w-4" /> : 'Ya, Akhiri'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function scrollContentTop() {
   document.querySelector('.screen')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -367,6 +442,20 @@ export default function StockpileOperatorPage() {
   const [tab, setTab] = useState('cp1');
   const [trips, setTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
+  const [session, setSession] = useState(null);
+
+  const fetchSession = useCallback(async () => {
+    try {
+      setSession(await api.getTodaySession());
+    } catch {
+      /* non-critical */
+    }
+  }, []);
+
+  async function handleEndSession(sessionId) {
+    await api.endSession(sessionId);
+    await fetchSession();
+  }
 
   const fetchTrips = useCallback(async () => {
     setTripsLoading(true);
@@ -381,9 +470,10 @@ export default function StockpileOperatorPage() {
 
   useEffect(() => {
     fetchTrips();
-    const interval = setInterval(fetchTrips, 30000);
+    fetchSession();
+    const interval = setInterval(() => { fetchTrips(); fetchSession(); }, 30000);
     return () => clearInterval(interval);
-  }, [fetchTrips]);
+  }, [fetchTrips, fetchSession]);
 
   const pendingTrips = trips.filter((tr) => tr.status === 'pending');
   const titles = { cp1: t('tabMasuk'), cp2: t('tabKeluar'), trips: t('todayTitle'), export: t('tabEkspor'), analytics: t('tabAnalytics') };
@@ -431,9 +521,12 @@ export default function StockpileOperatorPage() {
       <div className="op-layout">
         <div className="op-sidebar">{sidebarNav}</div>
         <div className="op-main">
+          {(tab === 'cp1' || tab === 'cp2' || tab === 'trips') && (
+            <SessionBanner session={session} onEnd={handleEndSession} />
+          )}
           {tab === 'cp1' && (
             <div className="op-two-col">
-              <div className="op-col-form"><CP1Form onSuccess={fetchTrips} /></div>
+              <div className="op-col-form"><CP1Form onSuccess={() => { fetchTrips(); fetchSession(); }} /></div>
               <div className="op-col-list"><TodayList trips={trips} loading={tripsLoading} onRefresh={fetchTrips} /></div>
             </div>
           )}

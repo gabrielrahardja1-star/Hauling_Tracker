@@ -131,6 +131,11 @@ export const api = {
     return res.blob();
   },
 
+  // Sessions
+  getTodaySession: ()    => request('GET', '/sessions/today'),
+  endSession: (id)       => request('PATCH', `/sessions/${id}/end`, {}),
+  listSessions: ()       => request('GET', '/sessions'),
+
   // Barge loadings
   createBargeLoading: (data) => request('POST', '/barge-loadings', data),
   listBargeLoadings: (params = {}) => {
