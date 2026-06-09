@@ -30,7 +30,15 @@ function SessionBanner({ session, onEnd }) {
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
 
-  if (!session) return null;
+  if (!session) {
+    return (
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 16 }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+          Belum ada sesi hari ini — sesi akan dibuat otomatis saat trip pertama dicatat.
+        </span>
+      </div>
+    );
+  }
 
   const isActive = session.status === 'active';
 
