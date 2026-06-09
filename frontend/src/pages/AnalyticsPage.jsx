@@ -72,7 +72,7 @@ function TalentaCard({ nettoSiteKg, nettoJettyKg, bargedKg }) {
   function SubBox({ titleKey, valueKg, balance }) {
     return (
       <div style={{ flex: 1, minWidth: 0, background: 'var(--bg, #f8f9fa)', borderRadius: 8, padding: '8px 10px', border: '1px solid var(--border)' }}>
-        <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, whiteSpace: 'nowrap' }}>
+        <div className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>
           {t(titleKey)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -100,7 +100,7 @@ function TalentaCard({ nettoSiteKg, nettoJettyKg, bargedKg }) {
       <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
         Talenta
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <SubBox titleKey="analyticsNettoSite" valueKg={nettoSiteKg} balance={siteBalance} />
         <SubBox titleKey="analyticsNettoJetty" valueKg={nettoJettyKg} balance={jettyBalance} />
       </div>

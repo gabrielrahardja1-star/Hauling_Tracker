@@ -1086,36 +1086,7 @@
 .op-col-form  { flex: 1; min-width: 0; }
 .op-col-list  { flex: 1; min-width: 0; }
 
-.app-viewport-wide .op-layout {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-.app-viewport-wide .op-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 210px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 16px;
-}
-
-.app-viewport-wide .op-bottom-tabs-only {
-  display: none !important;
-}
-
-.app-viewport-wide .op-two-col {
-  flex-direction: row;
-  align-items: flex-start;
-}
-
-.app-viewport-wide .op-col-form {
-  max-width: 400px;
-}
-
-/* Analytics desktop layout */
+/* Analytics mobile-first base */
 .analytics-layout {
   display: flex;
   flex-direction: column;
@@ -1137,31 +1108,62 @@
   gap: 10px;
 }
 
-/* Only activate desktop layout inside the wide viewport card */
-.app-viewport-wide .analytics-layout {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 18px;
-}
+/* Desktop layout: operator sidebar + analytics — only on wide screens */
+@media (min-width: 640px) {
+  .app-viewport-wide .op-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 18px;
+  }
 
-.app-viewport-wide .analytics-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 240px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 16px;
-}
+  .app-viewport-wide .op-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 210px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 16px;
+  }
 
-.app-viewport-wide .analytics-filters-mobile {
-  display: none !important;
-}
+  .app-viewport-wide .op-bottom-tabs-only {
+    display: none !important;
+  }
 
-.app-viewport-wide .analytics-jetty-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  .app-viewport-wide .op-two-col {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .app-viewport-wide .op-col-form {
+    max-width: 400px;
+  }
+
+  .app-viewport-wide .analytics-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .app-viewport-wide .analytics-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 16px;
+  }
+
+  .app-viewport-wide .analytics-filters-mobile {
+    display: none !important;
+  }
+
+  .app-viewport-wide .analytics-jetty-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
