@@ -67,6 +67,9 @@ export const api = {
   // Admin: free-form edit
   updateTrip: (id, data) => request('PATCH', `/trips/${id}`, data),
 
+  // Admin: toggle lock
+  lockTrip: (id) => request('PATCH', `/trips/${id}/lock`),
+
   // Admin: Excel export
   async exportTrips(from, to, jetty) {
     const token = _getToken();

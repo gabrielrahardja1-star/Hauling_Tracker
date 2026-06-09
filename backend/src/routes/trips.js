@@ -52,6 +52,7 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req,
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
   if (trip.status !== 'pending') return res.status(409).json({ error: 'Trip is not in pending status' });
 
   const netto_site_kg = gross_site_kg - trip.tare_site_kg;
@@ -78,6 +79,7 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
   if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
 
   const netto_jetty_kg   = gross_jetty_kg;
@@ -428,6 +430,19 @@ router.get('/', requireRole('admin', 'jetty_operator'), async (req, res) => {
   res.json(trips);
 });
 
+// PATCH /trips/:id/lock — admin only, toggles is_locked
+router.patch('/:id/lock', requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  const [updated] = await query(
+    'update trips set is_locked = NOT is_locked where trip_id = $1 returning *',
+    [id]
+  );
+  res.json(updated);
+});
+
 // PATCH /trips/:id — admin free-form edit, recalculates derived fields
 router.patch('/:id', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
@@ -435,6 +450,7 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
 
   const m = { ...trip, ...updates };
 

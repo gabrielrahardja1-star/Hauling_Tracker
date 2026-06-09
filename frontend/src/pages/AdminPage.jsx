@@ -24,7 +24,7 @@ function subtractDays(dateStr, days) {
   return d.toISOString().split('T')[0];
 }
 
-function EditCell({ value, type = 'text', options, onSave }) {
+function EditCell({ value, type = 'text', options, onSave, locked = false }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? '');
   const { unit } = useUnit();
@@ -41,6 +41,7 @@ function EditCell({ value, type = 'text', options, onSave }) {
   }, [value, editing]);
 
   if (options) {
+    if (locked) return <span>{options.find((o) => o.value === value)?.label ?? value ?? '-'}</span>;
     return editing ? (
       <select
         className="inline-edit"
@@ -57,6 +58,8 @@ function EditCell({ value, type = 'text', options, onSave }) {
       </span>
     );
   }
+
+  if (locked) return <span>{value != null ? (type === 'number' ? fmtWeight(value, unit) : value) : '-'}</span>;
 
   return editing ? (
     <input
@@ -273,6 +276,15 @@ export default function AdminPage() {
     }
   }
 
+  async function handleLockToggle(tripId) {
+    try {
+      const updated = await api.lockTrip(tripId);
+      setTrips((prev) => prev.map((t) => (t.trip_id === tripId ? updated : t)));
+    } catch (err) {
+      alert(`Lock failed: ${err.message}`);
+    }
+  }
+
   const JETTY_OPTS = [{ value: 'hasnur', label: 'Hasnur' }, { value: 'talenta', label: 'Talenta' }];
   const QUALITY_OPTS = [{ value: 'raw', label: 'Raw' }, { value: 'clean', label: 'Clean' }];
   const STATUS_OPTS = [
@@ -404,37 +416,50 @@ export default function AdminPage() {
                   ].map(({ label, key }) => (
                     <SortTh key={key} label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={toggleSort} />
                   ))}
+                  <th style={{ textAlign: 'center', width: 48 }}>Lock</th>
                 </tr>
               </thead>
               <tbody>
-                {displayTrips.map((t) => (
-                  <tr key={t.trip_id}>
-                    <td><EditCell value={t.no_tiket} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'no_tiket', v)} /></td>
-                    <td style={{ fontWeight: 800 }}><EditCell value={t.no_lambung} onSave={(v) => handleFieldUpdate(t.trip_id, 'no_lambung', v)} /></td>
-                    <td><EditCell value={t.jetty_destination} options={JETTY_OPTS} onSave={(v) => handleFieldUpdate(t.trip_id, 'jetty_destination', v)} /></td>
+                {displayTrips.map((t) => {
+                  const locked = !!t.is_locked;
+                  return (
+                  <tr key={t.trip_id} className={locked ? 'trip-row--locked' : ''}>
+                    <td><EditCell value={t.no_tiket} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'no_tiket', v)} /></td>
+                    <td style={{ fontWeight: 800 }}><EditCell value={t.no_lambung} locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'no_lambung', v)} /></td>
+                    <td><EditCell value={t.jetty_destination} options={JETTY_OPTS} locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'jetty_destination', v)} /></td>
                     <td>
                       <span onDoubleClick={() => {}}>
                         <StatusPill status={t.status} short />
                       </span>
                       <div style={{ marginTop: 4 }}>
-                        <EditCell value={t.status} options={STATUS_OPTS} onSave={(v) => handleFieldUpdate(t.trip_id, 'status', v)} />
+                        <EditCell value={t.status} options={STATUS_OPTS} locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'status', v)} />
                       </div>
                     </td>
-                    <td><EditCell value={t.coal_quality} options={QUALITY_OPTS} onSave={(v) => handleFieldUpdate(t.trip_id, 'coal_quality', v)} /></td>
-                    <td><EditCell value={t.cuaca_mmi} onSave={(v) => handleFieldUpdate(t.trip_id, 'cuaca_mmi', v)} /></td>
-                    <td style={{ textAlign: 'right' }}><EditCell value={t.tare_site_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_site_kg', v)} /></td>
-                    <td style={{ textAlign: 'right' }}><EditCell value={t.gross_site_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_site_kg', v)} /></td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}><EditCell value={t.netto_site_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_site_kg', v)} /></td>
+                    <td><EditCell value={t.coal_quality} options={QUALITY_OPTS} locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'coal_quality', v)} /></td>
+                    <td><EditCell value={t.cuaca_mmi} locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'cuaca_mmi', v)} /></td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.tare_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_site_kg', v)} /></td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.gross_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_site_kg', v)} /></td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}><EditCell value={t.netto_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_site_kg', v)} /></td>
                     <td>{toWITA(t.cp1_timestamp)}</td>
-                    <td style={{ textAlign: 'right' }}><EditCell value={t.gross_jetty_kg} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} /></td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.gross_jetty_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} /></td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{fw(t.netto_jetty_kg)}</td>
                     <td style={{ textAlign: 'right' }}>{fw(t.compare_gross_kg)}</td>
                     <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{fw(t.deviasi_kg)}</td>
-                    <td style={{ textAlign: 'right' }}><EditCell value={t.adjustment_kg ?? 0} type="number" onSave={(v) => handleFieldUpdate(t.trip_id, 'adjustment_kg', v)} /></td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.adjustment_kg ?? 0} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'adjustment_kg', v)} /></td>
                     <td>{toWITA(t.cp2_timestamp)}</td>
                     <td>{toWITA(t.cp3_timestamp)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <IconButton
+                        label={locked ? 'Unlock trip' : 'Lock trip'}
+                        onClick={() => handleLockToggle(t.trip_id)}
+                        style={{ color: locked ? 'var(--brand)' : 'var(--text-muted)' }}
+                      >
+                        <I.shield width="16" height="16" />
+                      </IconButton>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
