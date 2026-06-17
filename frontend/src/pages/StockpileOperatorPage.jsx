@@ -26,6 +26,7 @@ import { api } from '../lib/api';
 const CP1_INITIAL = { no_lambung: '', jetty_destination: '', coal_quality: '', cuaca_mmi: '', tare_site_kg: '' };
 
 function SessionBanner({ session, onEnd }) {
+  const { t } = useLang();
   const [ending, setEnding] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +35,7 @@ function SessionBanner({ session, onEnd }) {
     return (
       <div className="card" style={{ padding: '12px 16px', marginBottom: 16 }}>
         <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-          Belum ada sesi hari ini — sesi akan dibuat otomatis saat trip pertama dicatat.
+          {t('sessionAutoCreate')}
         </span>
       </div>
     );
@@ -69,7 +70,7 @@ function SessionBanner({ session, onEnd }) {
               background: isActive ? 'var(--accent)' : 'var(--muted)',
               display: 'inline-block',
             }} />
-            {isActive ? 'Sesi Aktif' : 'Sesi Selesai'}
+            {isActive ? t('sessionActive') : t('sessionEnded')}
           </span>
           <span className="muted" style={{ fontSize: 12 }}>
             {session.trip_count ?? 0} trip
@@ -83,7 +84,7 @@ function SessionBanner({ session, onEnd }) {
             style={{ fontSize: 12, padding: '4px 10px' }}
             onClick={() => setConfirm(true)}
           >
-            Akhiri Sesi
+            {t('sessionEndBtn')}
           </button>
         )}
       </div>
@@ -91,15 +92,15 @@ function SessionBanner({ session, onEnd }) {
       {confirm && (
         <div style={{ marginTop: 10 }}>
           <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
-            Akhiri sesi hari ini? Trip baru tetap bisa dicatat setelah sesi diakhiri.
+            {t('sessionEndConfirm')}
           </div>
           {error && <div className="alert" style={{ marginBottom: 8 }}>{error}</div>}
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setConfirm(false); setError(''); }}>
-              Batal
+              {t('sessionCancel')}
             </button>
             <button type="button" className="btn btn-accent btn-sm" disabled={ending} onClick={handleEnd}>
-              {ending ? <Spinner className="h-4 w-4" /> : 'Ya, Akhiri'}
+              {ending ? <Spinner className="h-4 w-4" /> : t('sessionConfirmEnd')}
             </button>
           </div>
         </div>
@@ -206,11 +207,12 @@ function CP1Form({ onSuccess }) {
             value={form.coal_quality}
             onChange={(value) => set('coal_quality', value)}
             options={[
-              { value: 'raw', label: t('coalRaw'), sub: t('coalRawSub') },
-              { value: 'clean', label: t('coalClean'), sub: t('coalCleanSub') },
+              { value: 'premium', label: t('coalRaw'), sub: t('coalRawSub') },
+              { value: 'standard', label: t('coalClean'), sub: t('coalCleanSub') },
             ]}
           />
         </Field>
+
 
         <Field label={t('cp1Weather')}>
           <Segmented

@@ -1,24 +1,19 @@
 services:
-  db:
-    image: postgres:16-alpine
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
     restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
     environment:
-      POSTGRES_USER: hauling_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: hauling_tracker
+      CLICKHOUSE_DB: hauling_tracker
+      CLICKHOUSE_USER: hauling_user
+      CLICKHOUSE_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./supabase/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
-      - ./supabase/migrations/002_add_pit_tare.sql:/docker-entrypoint-initdb.d/002_schema.sql
-      - ./supabase/migrations/003_rename_pit_to_stockpile.sql:/docker-entrypoint-initdb.d/003_schema.sql
-      - ./supabase/migrations/004_rebuild_trips_schema.sql:/docker-entrypoint-initdb.d/004_schema.sql
-      - ./supabase/migrations/005_drop_tare_jetty.sql:/docker-entrypoint-initdb.d/005_schema.sql
-      - ./supabase/migrations/006_barge_loadings.sql:/docker-entrypoint-initdb.d/006_schema.sql
-      - ./supabase/migrations/007_analytics_role.sql:/docker-entrypoint-initdb.d/007_schema.sql
-      - ./supabase/migrations/008_add_adjustment.sql:/docker-entrypoint-initdb.d/008_schema.sql
-      - ./supabase/migrations/009_drop_unique_truck_per_day.sql:/docker-entrypoint-initdb.d/009_schema.sql
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hauling_user -d hauling_tracker"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8123/ping || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -29,11 +24,12 @@ services:
     network_mode: host
     environment:
       PORT: 3002
-      DATABASE_URL: postgres://hauling_user:${DB_PASSWORD}@localhost:5432/hauling_tracker
+      DATABASE_URL: http://hauling_user:${DB_PASSWORD}@localhost:8123
+      CLICKHOUSE_DB: hauling_tracker
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: http://${SERVER_IP}
     depends_on:
-      db:
+      clickhouse:
         condition: service_healthy
 
   frontend:
@@ -47,4 +43,4 @@ services:
       - backend
 
 volumes:
-  postgres_data:
+  clickhouse_data:

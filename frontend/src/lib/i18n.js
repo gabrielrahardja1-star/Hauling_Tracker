@@ -8,7 +8,7 @@ export const translations = {
     backToHome: 'Kembali ke Home',
 
     // Roles
-    roleStockpile: 'Operator Stockpile',
+    roleStockpile: 'Operator Site',
     roleJetty: 'Operator Jetty',
     roleAdmin: 'Admin',
     roleAnalytics: 'Analytics',
@@ -24,7 +24,7 @@ export const translations = {
     // Nav / Admin actions
     navUsers: 'Users',
     navAnalytics: 'Analytics',
-    navStockpile: 'Stockpile',
+    navStockpile: 'Site',
     navJetty: 'Jetty',
     navExport: 'Export .xlsx',
 
@@ -77,7 +77,7 @@ export const translations = {
     statusPending: 'Pending',
     statusInTransit: 'In Transit',
     statusCompleted: 'Completed',
-    statusPendingLong: 'Di Stockpile',
+    statusPendingLong: 'Di Site',
     statusInTransitLong: 'Perjalanan',
     statusCompletedLong: 'Selesai',
 
@@ -88,10 +88,27 @@ export const translations = {
     tripDev: 'dev',
 
     // Coal quality
-    coalClean: 'Clean',
-    coalCleanSub: 'Bersih',
-    coalRaw: 'Raw',
-    coalRawSub: 'Mentah',
+    coalClean: 'Standard',
+    coalCleanSub: 'Standar',
+    coalRaw: 'Premium',
+    coalRawSub: 'Premium',
+
+    // Session
+    sessionActive: 'Sesi Aktif',
+    sessionEnded: 'Sesi Selesai',
+    sessionEndBtn: 'Akhiri Sesi',
+    sessionEndConfirm: 'Akhiri sesi hari ini? Trip baru tetap bisa dicatat setelah sesi diakhiri.',
+    sessionCancel: 'Batal',
+    sessionConfirmEnd: 'Ya, Akhiri',
+    sessionAutoCreate: 'Belum ada sesi hari ini — sesi akan dibuat otomatis saat trip pertama dicatat.',
+
+    // Barge loading
+    bargeStockpileCode: 'Kode Stockpile',
+
+    // CP3 tare at Talenta
+    cp3TareLabel: 'Berat Kosong di Jetty',
+    cp3TareHint: 'Tara jetty - kg',
+    cp3CompareTare: 'Compare Tare (Jetty vs Site)',
 
     // Weather
     weatherCerah: 'Cerah',
@@ -379,10 +396,27 @@ export const translations = {
     tripDev: '偏差',
 
     // Coal quality
-    coalClean: '精煤',
-    coalCleanSub: '精煤',
-    coalRaw: '原煤',
-    coalRawSub: '原煤',
+    coalClean: 'Standard',
+    coalCleanSub: '标准',
+    coalRaw: 'Premium',
+    coalRawSub: '优质',
+
+    // Session
+    sessionActive: '时期活跃',
+    sessionEnded: '时期已结束',
+    sessionEndBtn: '结束时期',
+    sessionEndConfirm: '结束今日时期？新行程在时期结束后仍可继续记录。',
+    sessionCancel: '取消',
+    sessionConfirmEnd: '是，结束',
+    sessionAutoCreate: '今日暂无时期 — 第一次记录行程时将自动创建时期。',
+
+    // Barge loading
+    bargeStockpileCode: '料场编号',
+
+    // CP3 tare at Talenta
+    cp3TareLabel: '码头皮重',
+    cp3TareHint: '码头皮重 - kg',
+    cp3CompareTare: '皮重对比（码头 vs 现场）',
 
     // Weather
     weatherCerah: '晴天',

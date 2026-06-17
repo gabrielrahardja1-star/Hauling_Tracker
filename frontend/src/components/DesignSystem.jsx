@@ -37,7 +37,7 @@ export function witaToday() {
 }
 
 export const STATUS = {
-  pending: { cls: 'st-pending', label: 'Di Stockpile' },
+  pending: { cls: 'st-pending', label: 'Di Site' },
   in_transit: { cls: 'st-transit', label: 'Perjalanan' },
   completed: { cls: 'st-done', label: 'Selesai' },
 };
@@ -49,8 +49,8 @@ export const STATUS_SHORT = {
 };
 
 export const JETTY = { hasnur: 'Hasnur', talenta: 'Talenta' };
-export const QUALITY = { raw: 'Raw', clean: 'Clean' };
-export const QUALITY_ID = { raw: 'Mentah', clean: 'Bersih' };
+export const QUALITY = { raw: 'Premium', clean: 'Standard', premium: 'Premium', standard: 'Standard' };
+export const QUALITY_ID = { raw: 'Premium', clean: 'Standard', premium: 'Premium', standard: 'Standard' };
 
 export const I = {
   truck: (p = {}) => (

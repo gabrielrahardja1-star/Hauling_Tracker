@@ -116,7 +116,7 @@ function UserModal({ onClose }) {
   }
 
   const ROLE_LABELS = {
-    stockpile_operator: 'Stockpile Operator',
+    stockpile_operator: 'Site Operator',
     jetty_operator: 'Jetty Operator',
     admin: 'Admin',
     analytics: 'Analytics',
@@ -145,7 +145,7 @@ function UserModal({ onClose }) {
             </Field>
             <Field label="Role">
               <select className="input" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
-                <option value="stockpile_operator">Stockpile Operator</option>
+                <option value="stockpile_operator">Site Operator</option>
                 <option value="jetty_operator">Jetty Operator</option>
                 <option value="admin">Admin</option>
                 <option value="analytics">Analytics</option>

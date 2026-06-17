@@ -24,7 +24,7 @@ import {
 } from '../components/DesignSystem';
 import { api } from '../lib/api';
 
-const BARGE_INITIAL = { jetty: '', barge_name: '', tug_boat_name: '', loading_date: witaToday(), loading_qty_kg: '' };
+const BARGE_INITIAL = { jetty: '', barge_name: '', tug_boat_name: '', loading_date: witaToday(), loading_qty_kg: '', stockpile_code: '' };
 
 function BargePanel({ defaultJetty }) {
   const { t } = useLang();
@@ -48,7 +48,11 @@ function BargePanel({ defaultJetty }) {
   useEffect(() => { fetchLoadings(); }, [fetchLoadings]);
 
   function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => ({
+      ...f,
+      [field]: value,
+      ...(field === 'jetty' ? { stockpile_code: '' } : {}),
+    }));
     setError('');
     setSuccess(null);
   }
@@ -137,6 +141,24 @@ function BargePanel({ defaultJetty }) {
             <Field label={t('tugBoat')}>
               <input type="text" className="input" placeholder="PRIMA 3330" value={form.tug_boat_name} onChange={(e) => set('tug_boat_name', e.target.value.toUpperCase())} required />
             </Field>
+            {form.jetty && (
+              <Field label={t('bargeStockpileCode')}>
+                <select className="input" value={form.stockpile_code} onChange={(e) => set('stockpile_code', e.target.value)}>
+                  <option value="">— Pilih —</option>
+                  {form.jetty === 'talenta' && <>
+                    <option value="Line 1">Line 1</option>
+                    <option value="Line 2">Line 2</option>
+                    <option value="Line 3">Line 3</option>
+                    <option value="Line 4">Line 4</option>
+                    <option value="Stockroom 2">Stockroom 2</option>
+                  </>}
+                  {form.jetty === 'hasnur' && <>
+                    <option value="Jetty R">Jetty R</option>
+                    <option value="Jetty H/J">Jetty H/J</option>
+                  </>}
+                </select>
+              </Field>
+            )}
             <Field label={t('loadingQty')} hint="kg">
               <input type="text" inputMode="numeric" className="input num" placeholder="0" value={form.loading_qty_kg} onChange={(e) => set('loading_qty_kg', e.target.value.replace(/\D/g, ''))} required />
             </Field>
@@ -176,6 +198,7 @@ export default function JettyOperatorPage() {
   const [trip, setTrip] = useState(null);
 
   const [grossJetty, setGrossJetty] = useState('');
+  const [tareJetty, setTareJetty] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -216,6 +239,7 @@ export default function JettyOperatorPage() {
     setTrip(t);
     setSearchInput(t.no_lambung);
     setGrossJetty('');
+    setTareJetty('');
     setSubmitError('');
     setSuccess(null);
     scrollContentTop();
@@ -228,6 +252,7 @@ export default function JettyOperatorPage() {
     setTrip(null);
     setSuccess(null);
     setGrossJetty('');
+    setTareJetty('');
     setSearching(true);
     try {
       const t = await api.searchTrip(searchInput.trim().toUpperCase());
@@ -248,9 +273,13 @@ export default function JettyOperatorPage() {
       return;
     }
 
+    const tareKg = parseInt(tareJetty, 10) || null;
+
     setSubmitting(true);
     try {
-      const updated = await api.submitCP3(trip.trip_id, { gross_jetty_kg: grossKg });
+      const payload = { gross_jetty_kg: grossKg };
+      if (tareKg) payload.tare_jetty_kg = tareKg;
+      const updated = await api.submitCP3(trip.trip_id, payload);
       setSuccess(updated);
       setTrip(null);
       fetchTrips();
@@ -267,14 +296,18 @@ export default function JettyOperatorPage() {
     setSearchInput('');
     setSearchError('');
     setGrossJetty('');
+    setTareJetty('');
     setSubmitError('');
   }
 
   const g = parseInt(grossJetty, 10) || 0;
+  const tare = parseInt(tareJetty, 10) || 0;
+  const nettoJettyPreview = tare > 0 ? g - tare : g;
   const preview = trip && g ? {
-    netto_jetty: g,
+    netto_jetty: nettoJettyPreview,
     compare_gross: g - (trip.gross_site_kg || 0),
-    deviasi: g - (trip.netto_site_kg || 0),
+    deviasi: nettoJettyPreview - (trip.netto_site_kg || 0),
+    compare_tare: tare > 0 ? tare - (trip.tare_site_kg || 0) : null,
   } : null;
 
   const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
@@ -444,6 +477,22 @@ export default function JettyOperatorPage() {
               />
             </Field>
 
+            {trip && (
+              <Field label={t('cp3TareLabel')} hint={t('cp3TareHint')}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="input num"
+                  placeholder="0"
+                  value={tareJetty}
+                  onChange={(e) => {
+                    setTareJetty(e.target.value.replace(/\D/g, ''));
+                    setSubmitError('');
+                  }}
+                />
+              </Field>
+            )}
+
             {preview && (
               <div className="card" style={{ padding: 14 }}>
                 <div className="between" style={{ marginBottom: 8 }}>
@@ -460,6 +509,14 @@ export default function JettyOperatorPage() {
                   <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareGross')}</span>
                   <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{fw(preview.compare_gross)} {unit}</span>
                 </div>
+                {preview.compare_tare != null && (
+                  <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
+                    <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareTare')}</span>
+                    <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.compare_tare !== 0 ? 'var(--danger)' : 'inherit' }}>
+                      {preview.compare_tare > 0 ? '+' : ''}{fw(preview.compare_tare)} {unit}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,5 +1,7 @@
+import 'dotenv/config';
+import { randomUUID } from 'crypto';
 import ExcelJS from 'exceljs';
-import pg from 'pg';
+import { createClient } from '@clickhouse/client';
 import { readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -10,13 +12,12 @@ const DATA_DIRS = [
   join(__dirname, '../../Fw_ Rekap Hauling MMI'),
 ];
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres:///hauling_tracker',
-  ssl: false,
+const chClient = createClient({
+  url: process.env.DATABASE_URL || 'http://localhost:8123',
+  database: process.env.CLICKHOUSE_DB || 'hauling_tracker',
+  clickhouse_settings: { date_time_output_format: 'iso' },
 });
 
-// Excel stores times as fractional days from 1899-12-30
-// Combine with a real date string to get a proper timestamp
 function excelTimeToTimestamp(dateStr, excelTime) {
   if (!excelTime) return null;
   let hours, minutes;
@@ -30,30 +31,23 @@ function excelTimeToTimestamp(dateStr, excelTime) {
   } else {
     return null;
   }
-  // dateStr is WITA (UTC+8), store as UTC
   const [y, m, d] = dateStr.split('-').map(Number);
   const wita = new Date(Date.UTC(y, m - 1, d, hours, minutes, 0));
-  const utc = new Date(wita.getTime() - 8 * 60 * 60 * 1000);
-  return utc.toISOString();
+  return new Date(wita.getTime() - 8 * 60 * 60 * 1000).toISOString();
 }
 
 function extractDate(row2) {
-  // Cell 1 of row 2 is the date
   const v = row2.getCell(1).value;
-  if (v instanceof Date) {
-    return v.toISOString().split('T')[0];
-  }
-  if (typeof v === 'string') {
-    return v.split('T')[0];
-  }
+  if (v instanceof Date) return v.toISOString().split('T')[0];
+  if (typeof v === 'string') return v.split('T')[0];
   return null;
 }
 
 function coalQuality(raw) {
   if (raw === '精煤') return 'clean';
   if (raw === '原煤') return 'raw';
-  return 'clean'; // default
-}
+  return 'clean';
+}http://mmiminimarketbackend.online:8080/shop
 
 async function parseFile(filePath) {
   const wb = new ExcelJS.Workbook();
@@ -65,20 +59,18 @@ async function parseFile(filePath) {
     return [];
   }
 
-  // Coal quality is in row 1 col 7
   const qualityRaw = sheet.getRow(1).getCell(7).value;
   const quality = coalQuality(qualityRaw);
 
-  // Date is in row 2 col 1
   const dateStr = extractDate(sheet.getRow(2));
   if (!dateStr) throw new Error(`Could not extract date from ${filePath}`);
 
   const trips = [];
 
   sheet.eachRow((row, rn) => {
-    if (rn < 5) return; // skip headers
+    if (rn < 5) return;
     const noTiket = row.getCell(1).value;
-    if (typeof noTiket !== 'number') return; // skip totals row
+    if (typeof noTiket !== 'number') return;
 
     const noLambung = String(row.getCell(2).value || '').trim().toUpperCase();
     const cp1Time = row.getCell(3).value;
@@ -109,7 +101,6 @@ async function parseFile(filePath) {
 }
 
 async function main() {
-  const client = await pool.connect();
   try {
     const allFiles = [];
     for (const dir of DATA_DIRS) {
@@ -134,22 +125,45 @@ async function main() {
 
       for (const t of trips) {
         try {
-          const res = await client.query(
-            `insert into trips
-               (date, no_tiket, no_lambung, jetty_destination, coal_quality,
-                cuaca_mmi, tare_site_kg, gross_site_kg, netto_site_kg,
-                cp1_timestamp, cp2_timestamp, status)
-             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-             on conflict (date, no_tiket) do nothing
-             returning trip_id`,
-            [
-              t.date, t.no_tiket, t.no_lambung, t.jetty_destination,
-              t.coal_quality, t.cuaca_mmi, t.tare_site_kg,
-              t.gross_site_kg, t.netto_site_kg,
-              t.cp1_timestamp, t.cp2_timestamp, t.status,
-            ]
-          );
-          if (res.rowCount > 0) inserted++; else skipped++;
+          const result = await chClient.query({
+            query: `SELECT 1 FROM trips FINAL WHERE date = {d: Date} AND no_tiket = {t: Int32} LIMIT 1`,
+            query_params: { d: t.date, t: t.no_tiket },
+            format: 'JSONEachRow',
+          });
+          const existing = await result.json();
+          if (existing.length > 0) {
+            skipped++;
+            continue;
+          }
+
+          const now = new Date().toISOString();
+          await chClient.insert({
+            table: 'trips',
+            values: [{
+              trip_id:           randomUUID(),
+              date:              t.date,
+              status:            t.status,
+              no_tiket:          t.no_tiket,
+              no_lambung:        t.no_lambung,
+              jetty_destination: t.jetty_destination,
+              coal_quality:      t.coal_quality,
+              cuaca_mmi:         t.cuaca_mmi,
+              tare_site_kg:      t.tare_site_kg,
+              cp1_timestamp:     t.cp1_timestamp,
+              gross_site_kg:     t.gross_site_kg,
+              netto_site_kg:     t.netto_site_kg,
+              cp2_timestamp:     t.cp2_timestamp,
+              gross_jetty_kg:    null,
+              netto_jetty_kg:    null,
+              compare_gross_kg:  null,
+              deviasi_kg:        null,
+              cp3_timestamp:     null,
+              adjustment_kg:     0,
+              _updated_at:       now,
+            }],
+            format: 'JSONEachRow',
+          });
+          inserted++;
         } catch (err) {
           console.warn(`  skip ${t.no_lambung} ${t.date}: ${err.message}`);
           skipped++;
@@ -163,8 +177,7 @@ async function main() {
 
     console.log(`\nDone. Total inserted: ${totalInserted}, skipped: ${totalSkipped}`);
   } finally {
-    client.release();
-    await pool.end();
+    await chClient.close();
   }
 }
 

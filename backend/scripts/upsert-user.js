@@ -1,6 +1,7 @@
 import 'dotenv/config';
+import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { query } from '../src/lib/db.js';
+import { query, insert } from '../src/lib/db.js';
 
 const [email, password, role = 'admin'] = process.argv.slice(2);
 const validRoles = ['stockpile_operator', 'jetty_operator', 'admin'];
@@ -20,15 +21,26 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+const normalizedEmail = email.toLowerCase();
 const passwordHash = await bcrypt.hash(password, 12);
-const [user] = await query(
-  `insert into users (email, password_hash, role)
-   values ($1, $2, $3)
-   on conflict (email)
-   do update set password_hash = excluded.password_hash, role = excluded.role
-   returning email, role, created_at`,
-  [email.toLowerCase(), passwordHash, role]
+const now = new Date().toISOString();
+
+const existing = await query(
+  `SELECT user_id, created_at FROM users FINAL WHERE email = {email: String} LIMIT 1`,
+  { email: normalizedEmail }
 );
 
-console.log(`User ready: ${user.email} (${user.role})`);
+const user_id = existing[0]?.user_id ?? randomUUID();
+const created_at = existing[0]?.created_at ?? now;
+
+await insert('users', [{
+  user_id,
+  email: normalizedEmail,
+  password_hash: passwordHash,
+  role,
+  created_at,
+  _updated_at: now,
+}]);
+
+console.log(`User ready: ${normalizedEmail} (${role})`);
 process.exit(0);

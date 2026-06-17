@@ -86,10 +86,13 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req,
 // PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
 router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res) => {
   const { id } = req.params;
-  const { gross_jetty_kg } = req.body;
+  const { gross_jetty_kg, tare_jetty_kg } = req.body;
 
   if (!gross_jetty_kg || gross_jetty_kg <= 0) {
     return res.status(400).json({ error: 'gross_jetty_kg is required and must be positive' });
+  }
+  if (tare_jetty_kg != null && tare_jetty_kg < 0) {
+    return res.status(400).json({ error: 'tare_jetty_kg must be non-negative' });
   }
 
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
@@ -101,21 +104,23 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res
   }
   if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
 
-  const netto_jetty_kg   = gross_jetty_kg;
+  const tare_kg          = tare_jetty_kg != null ? Number(tare_jetty_kg) : null;
+  const netto_jetty_kg   = tare_kg != null ? gross_jetty_kg - tare_kg : gross_jetty_kg;
   const compare_gross_kg = gross_jetty_kg - trip.gross_site_kg;
   const deviasi_kg       = netto_jetty_kg - trip.netto_site_kg;
 
   const [updated] = await query(
     `update trips
      set gross_jetty_kg   = $1,
-         netto_jetty_kg   = $2,
-         compare_gross_kg = $3,
-         deviasi_kg       = $4,
+         tare_jetty_kg    = $2,
+         netto_jetty_kg   = $3,
+         compare_gross_kg = $4,
+         deviasi_kg       = $5,
          cp3_timestamp    = now(),
          status           = 'completed'
-     where trip_id = $5
+     where trip_id = $6
      returning *`,
-    [gross_jetty_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, id]
+    [gross_jetty_kg, tare_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, id]
   );
 
   res.json(updated);
@@ -287,7 +292,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
       t.deviasi_kg,
       devPct != null ? Math.round(devPct * 100) / 100 : null,
       t.cuaca_mmi,
-      t.coal_quality === 'raw' ? '原煤' : '精煤',
+      (t.coal_quality === 'raw' || t.coal_quality === 'premium') ? 'Premium' : 'Standard',
     ]);
     dataRow.height = 18;
     dataRow.font = { size: 11 };
@@ -402,7 +407,7 @@ router.get('/truck-history/export', requireRole('analytics', 'admin'), async (re
     const row = sheet.addRow([
       t.date, t.no_tiket,
       t.jetty_destination === 'hasnur' ? 'HBM' : 'Talenta',
-      t.coal_quality === 'raw' ? '原煤' : '精煤',
+      (t.coal_quality === 'raw' || t.coal_quality === 'premium') ? 'Premium' : 'Standard',
       t.tare_site_kg, t.gross_site_kg, t.netto_site_kg,
       t.gross_jetty_kg, t.netto_jetty_kg,
       t.deviasi_kg, t.deviation_pct != null ? Number(t.deviation_pct) : null,
@@ -477,38 +482,39 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
     m.netto_site_kg = m.gross_site_kg - m.tare_site_kg;
   }
   if (m.gross_jetty_kg != null) {
-    m.netto_jetty_kg   = m.gross_jetty_kg;
+    m.netto_jetty_kg   = m.tare_jetty_kg != null ? m.gross_jetty_kg - m.tare_jetty_kg : m.gross_jetty_kg;
     m.compare_gross_kg = m.gross_jetty_kg - (m.gross_site_kg || 0);
     m.deviasi_kg       = m.netto_jetty_kg - (m.netto_site_kg || 0);
   }
 
   const [updated] = await query(
     `update trips set
-       date             = $1,
-       status           = $2,
-       no_tiket         = $3,
-       no_lambung       = $4,
+       date              = $1,
+       status            = $2,
+       no_tiket          = $3,
+       no_lambung        = $4,
        jetty_destination = $5,
-       coal_quality     = $6,
-       cuaca_mmi        = $7,
-       tare_site_kg     = $8,
-       cp1_timestamp    = $9,
-       gross_site_kg    = $10,
-       netto_site_kg    = $11,
-       cp2_timestamp    = $12,
-       gross_jetty_kg   = $13,
-       netto_jetty_kg   = $14,
-       compare_gross_kg = $15,
-       deviasi_kg       = $16,
-       cp3_timestamp    = $17,
-       adjustment_kg    = $18
-     where trip_id = $19
+       coal_quality      = $6,
+       cuaca_mmi         = $7,
+       tare_site_kg      = $8,
+       cp1_timestamp     = $9,
+       gross_site_kg     = $10,
+       netto_site_kg     = $11,
+       cp2_timestamp     = $12,
+       gross_jetty_kg    = $13,
+       tare_jetty_kg     = $14,
+       netto_jetty_kg    = $15,
+       compare_gross_kg  = $16,
+       deviasi_kg        = $17,
+       cp3_timestamp     = $18,
+       adjustment_kg     = $19
+     where trip_id = $20
      returning *`,
     [
       m.date, m.status, m.no_tiket, m.no_lambung,
       m.jetty_destination, m.coal_quality, m.cuaca_mmi, m.tare_site_kg,
       m.cp1_timestamp, m.gross_site_kg, m.netto_site_kg, m.cp2_timestamp,
-      m.gross_jetty_kg, m.netto_jetty_kg,
+      m.gross_jetty_kg, m.tare_jetty_kg ?? null, m.netto_jetty_kg,
       m.compare_gross_kg, m.deviasi_kg, m.cp3_timestamp,
       m.adjustment_kg ?? 0,
       id,
