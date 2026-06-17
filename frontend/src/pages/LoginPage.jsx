@@ -6,9 +6,12 @@ import { Field } from '../components/DesignSystem';
 import Spinner from '../components/Spinner';
 
 const ROLE_HOME = {
-  stockpile_operator: '/stockpile',
-  jetty_operator: '/jetty',
-  admin: '/admin',
+  stockpile_operator:  '/stockpile',
+  jetty_operator:      '/jetty',
+  admin:               '/admin',
+  analytics:           '/analytics',
+  site_jetty_operator: '/stockpile',
+  supervisor:          '/stockpile',
 };
 
 export default function LoginPage() {
