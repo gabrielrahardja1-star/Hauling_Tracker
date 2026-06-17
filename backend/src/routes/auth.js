@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query, queryOne, insert, client } from '../lib/db.js';
+import { query, queryOne } from '../lib/db.js';
 import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -28,11 +28,8 @@ router.post('/login', async (req, res) => {
   }
 
   const user = await queryOne(
-    `SELECT user_id, email, role, password_hash
-     FROM users FINAL
-     WHERE email = {email: String}
-     LIMIT 1`,
-    { email: email.toLowerCase() }
+    `SELECT user_id, email, role, password_hash FROM users WHERE email = $1 LIMIT 1`,
+    [email.toLowerCase()]
   );
 
   if (!user) return res.status(401).json({ error: 'Invalid email or password' });
@@ -60,33 +57,28 @@ router.post('/users', requireAuth, requireRole('admin'), async (req, res) => {
   }
 
   const existing = await queryOne(
-    `SELECT user_id FROM users FINAL WHERE email = {email: String} LIMIT 1`,
-    { email: email.toLowerCase() }
+    `SELECT user_id FROM users WHERE email = $1 LIMIT 1`,
+    [email.toLowerCase()]
   );
   if (existing) return res.status(409).json({ error: 'A user with that email already exists' });
 
   const password_hash = await bcrypt.hash(password, 12);
-  const now = new Date().toISOString();
   const user_id = randomUUID();
 
-  await insert('users', [{
-    user_id,
-    email: email.toLowerCase(),
-    password_hash,
-    role,
-    created_at: now,
-    _updated_at: now,
-  }]);
+  const [user] = await query(
+    `INSERT INTO users (user_id, email, password_hash, role)
+     VALUES ($1, $2, $3, $4)
+     RETURNING user_id, email, role, created_at`,
+    [user_id, email.toLowerCase(), password_hash, role]
+  );
 
-  res.status(201).json({ user_id, email: email.toLowerCase(), role, created_at: now });
+  res.status(201).json(user);
 });
 
 // GET /auth/users — admin lists all users
 router.get('/users', requireAuth, requireRole('admin'), async (req, res) => {
   const users = await query(
-    `SELECT user_id, email, role, created_at
-     FROM users FINAL
-     ORDER BY created_at ASC`
+    `SELECT user_id, email, role, created_at FROM users ORDER BY created_at ASC`
   );
   res.json(users);
 });
@@ -98,34 +90,27 @@ router.patch('/users/:id', requireAuth, requireRole('admin'), async (req, res) =
 
   if (!role && !password) return res.status(400).json({ error: 'Nothing to update' });
 
-  const current = await queryOne(
-    `SELECT * FROM users FINAL WHERE user_id = {id: UUID} LIMIT 1`,
-    { id }
-  );
+  const current = await queryOne(`SELECT * FROM users WHERE user_id = $1`, [id]);
   if (!current) return res.status(404).json({ error: 'User not found' });
 
-  const updated = { ...current };
-  if (role) updated.role = role;
-  if (password) updated.password_hash = await bcrypt.hash(password, 12);
-  updated._updated_at = new Date().toISOString();
+  const sets = [];
+  const vals = [];
+  let idx = 1;
+  if (role)     { sets.push(`role = $${idx++}`);          vals.push(role); }
+  if (password) { sets.push(`password_hash = $${idx++}`); vals.push(await bcrypt.hash(password, 12)); }
+  vals.push(id);
 
-  await insert('users', [updated]);
+  const [updated] = await query(
+    `UPDATE users SET ${sets.join(', ')} WHERE user_id = $${idx} RETURNING user_id, email, role, created_at`,
+    vals
+  );
 
-  res.json({
-    user_id: updated.user_id,
-    email: updated.email,
-    role: updated.role,
-    created_at: updated.created_at,
-  });
+  res.json(updated);
 });
 
 // DELETE /auth/users/:id — admin deletes a user
-// ClickHouse mutations are async; the row is removed at next merge
 router.delete('/users/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  await client.command({
-    query: `ALTER TABLE users DELETE WHERE user_id = {id: UUID}`,
-    query_params: { id: req.params.id },
-  });
+  await query(`DELETE FROM users WHERE user_id = $1`, [req.params.id]);
   res.status(204).end();
 });
 
