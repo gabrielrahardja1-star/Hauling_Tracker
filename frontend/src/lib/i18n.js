@@ -115,7 +115,8 @@ export const translations = {
     weatherBerawan: 'Berawan',
     weatherHujan: 'Hujan',
 
-    // Stockpile tabs
+    // Stockpile / Jetty tabs
+    tabNav: 'Navigasi',
     tabMasuk: 'Masuk',
     tabKeluar: 'Keluar',
     tabTrip: 'Trip',
@@ -424,6 +425,7 @@ export const translations = {
     weatherHujan: '雨天',
 
     // Stockpile tabs
+    tabNav: '导航',
     tabMasuk: '进场',
     tabKeluar: '出场',
     tabTrip: '行程',

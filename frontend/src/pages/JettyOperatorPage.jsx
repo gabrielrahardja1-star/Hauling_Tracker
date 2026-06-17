@@ -359,18 +359,6 @@ export default function JettyOperatorPage() {
 
   const cp3FormPane = (
     <div className="stack" style={{ gap: 14 }}>
-      {/* date range header */}
-      <div className="card" style={{ padding: '10px 14px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
-          {new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}
-        </div>
-        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>–</span>
-          <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
-      </div>
-
       {success && (
         <Banner
           title={t('cp3BannerTitle')}
@@ -538,6 +526,17 @@ export default function JettyOperatorPage() {
 
   const cp3ListPane = !trip && !success ? (
     <div className="stack" style={{ gap: 14 }}>
+      {/* date range filter lives here — it controls the lists below */}
+      <div className="card" style={{ padding: '10px 14px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>
+          {new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}
+        </div>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>–</span>
+          <input type="date" className="input" style={{ flex: 1, fontSize: 13 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+      </div>
       <div className="section-label">{t('cp3QueueSection')}</div>
       <TripListCard
         title={t('cp3QueueTitle')}
