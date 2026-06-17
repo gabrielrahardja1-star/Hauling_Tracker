@@ -135,3 +135,9 @@ pm2 restart hauling-api
 pm2 logs hauling-api --lines 20
 # Check /var/www/hauling/backend/.env has correct DATABASE_URL (postgres://, not http://)
 ```
+
+**New role logs in but is redirected back to /login:**
+This means `LoginPage.jsx` is missing the role in its local `ROLE_HOME` map. Every new role added must be included in both `App.jsx` AND `frontend/src/pages/LoginPage.jsx`. After fixing, rebuild the Docker image:
+```bash
+cd /var/www/hauling && git pull && docker compose build frontend && docker compose up -d frontend
+```

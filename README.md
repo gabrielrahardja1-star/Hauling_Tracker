@@ -1,11 +1,11 @@
 # Hauling Tracker
 
-Coal hauling clock-in/clock-out system for tracking truck trips from a mine pit to jettys (Hasnur / Talenta).
+Coal hauling clock-in/clock-out system for tracking truck trips from a mine stockpile to jettys (Hasnur / Talenta).
 
 ## Stack
 
 - **Frontend**: React 18 + Vite, Tailwind CSS, PWA (vite-plugin-pwa)
-- **Backend**: Node.js + Express (ESM)
+- **Backend**: Node.js + Express (ESM), PM2
 - **Database**: PostgreSQL (self-hosted)
 - **Auth**: Custom JWT + bcryptjs
 - **Excel export**: ExcelJS
@@ -18,9 +18,38 @@ Coal hauling clock-in/clock-out system for tracking truck trips from a mine pit 
 Hauling_Tracker/
 ├── frontend/          React PWA
 ├── backend/           Node.js Express API
-└── supabase/
-    └── migrations/    PostgreSQL schema SQL
+├── supabase/
+│   └── migrations/    PostgreSQL schema SQL
+└── docs/
+    └── user-access-guide.md  Team username/role reference
 ```
+
+---
+
+## Roles
+
+| Role | Access |
+|------|--------|
+| `admin` | Full access — user management, session locking, all data |
+| `stockpile_operator` | Site page — CP1 (tare) and CP2 (gross) entry |
+| `jetty_operator` | Jetty page — CP3 entry, barge loading |
+| `site_jetty_operator` | Both site and jetty pages (view/entry, no edit) |
+| `supervisor` | Both pages + edit/delete trips + audit changelog |
+| `analytics` | Analytics & reports only |
+
+---
+
+## App Routes
+
+| Path | Roles | Screen |
+|------|-------|--------|
+| `/login` | All | Sign-in page |
+| `/stockpile` | stockpile_operator, site_jetty_operator, supervisor, admin | Site CP1/CP2 entry |
+| `/jetty` | jetty_operator, site_jetty_operator, supervisor, admin | Jetty CP3 entry + barge loading |
+| `/admin` | admin | User management, session control, data table |
+| `/analytics` | analytics, admin, supervisor, site_jetty_operator | Reports & truck history |
+| `/changelog` | admin, supervisor | Audit log of all changes |
+| `/sessions` | admin | Session management |
 
 ---
 
@@ -28,11 +57,11 @@ Hauling_Tracker/
 
 ### 1. PostgreSQL
 
-Create a local DB and run the schema:
+Create a local DB and run all migrations in order:
 
 ```bash
 createdb hauling_tracker
-psql hauling_tracker < supabase/migrations/001_initial_schema.sql
+for f in supabase/migrations/*.sql; do psql hauling_tracker < "$f"; done
 ```
 
 ### 2. Backend
@@ -41,14 +70,14 @@ psql hauling_tracker < supabase/migrations/001_initial_schema.sql
 cd backend
 cp .env.example .env   # fill in DATABASE_URL and JWT_SECRET
 npm install
-npm run dev            # http://localhost:3001
+npm run dev            # http://localhost:3002
 ```
 
 ### 3. Frontend
 
 ```bash
 cd frontend
-cp .env.example .env   # set VITE_API_URL=http://localhost:3001
+cp .env.example .env   # set VITE_API_URL=http://localhost:3002
 npm install
 npm run dev            # http://localhost:5173
 ```
@@ -57,51 +86,20 @@ npm run dev            # http://localhost:5173
 
 ```bash
 cd backend
-node -e "
-import bcrypt from 'bcryptjs';
-const hash = await bcrypt.hash('yourpassword', 12);
-console.log(hash);
-" --input-type=module
+npm run user:upsert -- admin@example.com yourpassword admin
 ```
 
-Then insert into the DB:
-```sql
-insert into users (email, password_hash, role)
-values ('admin@example.com', '<paste hash>', 'admin');
-```
-
-After that, the admin can create operator accounts from the Users panel inside the app.
-
----
-
-## API Endpoints
-
-| Method   | Path                            | Role                      | Description               |
-|----------|---------------------------------|---------------------------|---------------------------|
-| `POST`   | `/auth/login`                   | All                       | Sign in, returns JWT      |
-| `POST`   | `/auth/users`                   | admin                     | Create user account       |
-| `GET`    | `/auth/users`                   | admin                     | List all users            |
-| `PATCH`  | `/auth/users/:id`               | admin                     | Update role or password   |
-| `DELETE` | `/auth/users/:id`               | admin                     | Delete user               |
-| `POST`   | `/trips`                        | pit_operator, admin       | Create a new trip         |
-| `GET`    | `/trips/active?truck_id=`       | jetty_operator, admin     | Get today's active trip   |
-| `PATCH`  | `/trips/:id`                    | jetty_operator, admin     | Complete trip or admin edit |
-| `GET`    | `/trips?date=&jetty=&status=`   | admin                     | List trips with filters   |
-| `GET`    | `/trips/export?date=&jetty=`    | admin                     | Download .xlsx report     |
-
----
-
-## App Routes
-
-| Path     | Role                      | Screen                                   |
-|----------|---------------------------|------------------------------------------|
-| `/login` | All                       | Sign-in page                             |
-| `/pit`   | pit_operator, admin       | Create new trip (clock in)               |
-| `/jetty` | jetty_operator, admin     | Complete trip (clock out)                |
-| `/admin` | admin                     | Table view, inline edit, export, user mgmt |
+The admin can then manage all other user accounts from `/admin` inside the app.
 
 ---
 
 ## VPS Deployment
 
-See [DEPLOY.md](DEPLOY.md) for full Hostinger VPS setup (PostgreSQL + PM2 + Nginx + HTTPS).
+See [DEPLOY.md](DEPLOY.md) for full server setup.
+
+> **Production server**: Docker serves the frontend on port 3003. Always rebuild the Docker image after frontend changes:
+> ```bash
+> cd /var/www/hauling && git pull && docker compose build frontend && docker compose up -d frontend && pm2 restart hauling-api
+> ```
+
+See [docs/user-access-guide.md](docs/user-access-guide.md) for the full team username/role mapping.
