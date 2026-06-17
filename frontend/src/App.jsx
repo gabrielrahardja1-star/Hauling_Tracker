@@ -10,13 +10,16 @@ import JettyOperatorPage from './pages/JettyOperatorPage';
 import AdminPage from './pages/AdminPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SessionManagementPage from './pages/SessionManagementPage';
+import ChangelogPage from './pages/ChangelogPage';
 import Spinner from './components/Spinner';
 
 const ROLE_HOME = {
-  stockpile_operator: '/stockpile',
-  jetty_operator:     '/jetty',
-  admin:              '/admin',
-  analytics:          '/analytics',
+  stockpile_operator:  '/stockpile',
+  jetty_operator:      '/jetty',
+  admin:               '/admin',
+  analytics:           '/analytics',
+  site_jetty_operator: '/stockpile',
+  supervisor:          '/stockpile',
 };
 
 function RoleRoute({ roles, children }) {
@@ -54,12 +57,12 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/stockpile" element={
-        <RoleRoute roles={['stockpile_operator', 'admin']}>
+        <RoleRoute roles={['stockpile_operator', 'admin', 'site_jetty_operator', 'supervisor']}>
           <StockpileOperatorPage />
         </RoleRoute>
       } />
       <Route path="/jetty" element={
-        <RoleRoute roles={['jetty_operator', 'admin']}>
+        <RoleRoute roles={['jetty_operator', 'admin', 'site_jetty_operator', 'supervisor']}>
           <JettyOperatorPage />
         </RoleRoute>
       } />
@@ -69,13 +72,18 @@ function AppRoutes() {
         </RoleRoute>
       } />
       <Route path="/analytics" element={
-        <RoleRoute roles={['stockpile_operator', 'jetty_operator', 'analytics', 'admin']}>
+        <RoleRoute roles={['stockpile_operator', 'jetty_operator', 'analytics', 'admin', 'site_jetty_operator', 'supervisor']}>
           <AnalyticsPage />
         </RoleRoute>
       } />
       <Route path="/sessions" element={
         <RoleRoute roles={['admin']}>
           <SessionManagementPage />
+        </RoleRoute>
+      } />
+      <Route path="/changelog" element={
+        <RoleRoute roles={['admin', 'supervisor']}>
+          <ChangelogPage />
         </RoleRoute>
       } />
       <Route path="*" element={<AuthRedirect />} />

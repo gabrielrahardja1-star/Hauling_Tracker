@@ -4,11 +4,15 @@ import { useUnit } from '../hooks/useUnit';
 import { I, IconButton, LiveTime, SyncChip } from './DesignSystem';
 
 const ROLE_HOME = {
-  admin: '/admin',
-  analytics: '/analytics',
-  stockpile_operator: '/stockpile',
-  jetty_operator: '/jetty',
+  admin:               '/admin',
+  analytics:           '/analytics',
+  stockpile_operator:  '/stockpile',
+  jetty_operator:      '/jetty',
+  site_jetty_operator: '/stockpile',
+  supervisor:          '/stockpile',
 };
+
+const DUAL_ROLE = ['site_jetty_operator', 'supervisor'];
 
 export default function Layout({ children, title, kicker, footer, wide = false }) {
   const { role, signOut } = useAuth();
@@ -16,12 +20,16 @@ export default function Layout({ children, title, kicker, footer, wide = false }
   const { unit, setUnit } = useUnit();
   const home = ROLE_HOME[role];
   const isHome = home && window.location.pathname === home;
+  const isDualRole = DUAL_ROLE.includes(role);
+  const onStockpile = window.location.pathname === '/stockpile';
 
   const roleLabel = {
-    stockpile_operator: t('roleStockpile'),
-    jetty_operator: t('roleJetty'),
-    admin: t('roleAdmin'),
-    analytics: t('roleAnalytics'),
+    stockpile_operator:  t('roleStockpile'),
+    jetty_operator:      t('roleJetty'),
+    admin:               t('roleAdmin'),
+    analytics:           t('roleAnalytics'),
+    site_jetty_operator: 'Site & Jetty',
+    supervisor:          'Supervisor',
   }[role] || 'Hauling Tracker';
 
   return (
@@ -62,7 +70,31 @@ export default function Layout({ children, title, kicker, footer, wide = false }
             >
               {lang === 'id' ? '中' : 'ID'}
             </button>
-            {home && !isHome && (
+            {isDualRole && (
+              <button
+                onClick={() => { window.location.href = onStockpile ? '/jetty' : '/stockpile'; }}
+                style={{
+                  padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                  border: '1.5px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text)', cursor: 'pointer', letterSpacing: 0.5,
+                }}
+              >
+                {onStockpile ? 'Jetty' : 'Site'}
+              </button>
+            )}
+            {role === 'supervisor' && (
+              <button
+                onClick={() => { window.location.href = '/changelog'; }}
+                style={{
+                  padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                  border: '1.5px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text)', cursor: 'pointer', letterSpacing: 0.5,
+                }}
+              >
+                Log
+              </button>
+            )}
+            {home && !isHome && !isDualRole && (
               <IconButton label={t('backToHome')} onClick={() => window.location.href = home}>
                 <I.arrowLeft width="18" height="18" />
               </IconButton>

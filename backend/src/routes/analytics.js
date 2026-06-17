@@ -7,7 +7,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 const router = Router();
 wrapAsyncRoutes(router);
 router.use(requireAuth);
-router.use(requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin'));
+router.use(requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin', 'site_jetty_operator', 'supervisor'));
 
 function buildFilters(from, to, jetty, startIdx = 1) {
   const conds = [];

@@ -12,7 +12,7 @@ function witaDate() {
 }
 
 // GET /sessions — list sessions with trip counts
-router.get('/', requireRole('admin', 'analytics', 'stockpile_operator'), async (_req, res) => {
+router.get('/', requireRole('admin', 'analytics', 'stockpile_operator', 'site_jetty_operator', 'supervisor'), async (_req, res) => {
   const rows = await query(`
     select s.*,
       count(t.trip_id)::int            as trip_count,
@@ -26,7 +26,7 @@ router.get('/', requireRole('admin', 'analytics', 'stockpile_operator'), async (
 });
 
 // GET /sessions/today — get today's session (active or ended)
-router.get('/today', requireRole('admin', 'analytics', 'stockpile_operator'), async (_req, res) => {
+router.get('/today', requireRole('admin', 'analytics', 'stockpile_operator', 'site_jetty_operator', 'supervisor'), async (_req, res) => {
   const today = witaDate();
   const session = await queryOne(`
     select s.*,
@@ -43,7 +43,7 @@ router.get('/today', requireRole('admin', 'analytics', 'stockpile_operator'), as
 });
 
 // PATCH /sessions/:id/end — end a session
-router.patch('/:id/end', requireRole('stockpile_operator', 'admin'), async (req, res) => {
+router.patch('/:id/end', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
   const session = await queryOne('select * from sessions where session_id = $1', [id]);
   if (!session) return res.status(404).json({ error: 'Session not found' });

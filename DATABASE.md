@@ -59,6 +59,8 @@ sudo -u postgres psql hauling_tracker -c "INSERT INTO schema_migrations (filenam
 | 013 | `013_add_tare_jetty.sql` | Add `tare_jetty_kg` to trips (jetty empty weight) |
 | 014 | `014_add_coal_quality_premium_standard.sql` | Add 'premium'/'standard' to coal_quality_enum |
 | 015 | `015_add_barge_stockpile_code.sql` | Add `stockpile_code` to barge_loadings |
+| 016 | `016_add_new_roles.sql` | Add `site_jetty_operator` and `supervisor` user roles |
+| 017 | `017_add_audit_log.sql` | Add `audit_log` table for change tracking |
 
 ---
 
@@ -104,7 +106,7 @@ Records coal loaded onto barges at the jetty.
 | `user_id` | uuid | PK |
 | `email` | text | Login username |
 | `password_hash` | text | bcrypt |
-| `role` | text | `admin`, `stockpile_operator`, `jetty_operator`, `analytics` |
+| `role` | text | `admin`, `stockpile_operator`, `jetty_operator`, `analytics`, `site_jetty_operator`, `supervisor` |
 
 ### `sessions`
 One session per operational day. Must be created by admin before operators can record trips.

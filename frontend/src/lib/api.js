@@ -145,4 +145,10 @@ export const api = {
     return request('GET', `/barge-loadings${q ? `?${q}` : ''}`);
   },
   deleteBargeLoading: (id) => request('DELETE', `/barge-loadings/${id}`),
+
+  // Audit log
+  listAudit: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/audit${q ? `?${q}` : ''}`);
+  },
 };

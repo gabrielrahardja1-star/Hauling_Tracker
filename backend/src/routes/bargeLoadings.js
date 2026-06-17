@@ -8,8 +8,8 @@ const router = Router();
 wrapAsyncRoutes(router);
 router.use(requireAuth);
 
-// POST /barge-loadings — jetty operator or admin records a barge loading
-router.post('/', requireRole('jetty_operator', 'admin'), async (req, res) => {
+// POST /barge-loadings — jetty operator, supervisor, or admin records a barge loading
+router.post('/', requireRole('jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty, barge_name, tug_boat_name, loading_date, loading_qty_kg, stockpile_code } = req.body;
 
   if (!jetty || !barge_name || !tug_boat_name || !loading_date || !loading_qty_kg) {
@@ -38,7 +38,7 @@ router.post('/', requireRole('jetty_operator', 'admin'), async (req, res) => {
 });
 
 // GET /barge-loadings?jetty=&from=&to= — list barge loadings
-router.get('/', requireRole('jetty_operator', 'stockpile_operator', 'admin', 'analytics'), async (req, res) => {
+router.get('/', requireRole('jetty_operator', 'stockpile_operator', 'admin', 'analytics', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty, from, to } = req.query;
 
   const conds = [];

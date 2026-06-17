@@ -81,6 +81,90 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
   );
 }
 
+const ACTION_LABELS = {
+  cp1_entry:  'CP1 — Truck arrived at site',
+  cp2_entry:  'CP2 — Truck departed site',
+  cp3_entry:  'CP3 — Truck arrived at jetty',
+  edit_trip:  'Trip edited',
+};
+
+function ChangelogModal({ onClose }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(() => {
+    api.listAudit({ limit: 200 }).then(setLogs).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  function fmt(ts) {
+    if (!ts) return '-';
+    return new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000)
+      .toISOString().replace('T', ' ').slice(0, 16) + ' WITA';
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-panel" style={{ maxWidth: 780 }}>
+        <div className="modal-head">
+          <div>
+            <div className="section-label">Audit</div>
+            <div style={{ fontWeight: 800, fontSize: 20 }}>Changelog</div>
+          </div>
+          <IconButton label="Tutup" onClick={onClose}>
+            <I.close width="18" height="18" />
+          </IconButton>
+        </div>
+        <div className="modal-body">
+          {loading ? (
+            <div className="empty-state"><Spinner /></div>
+          ) : logs.length === 0 ? (
+            <div className="empty-state" style={{ padding: 24 }}>No audit entries yet.</div>
+          ) : (
+            <div className="card flush">
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="trip-row"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setExpanded(expanded === log.id ? null : log.id)}
+                >
+                  <div className="tr-top">
+                    <div>
+                      <div className="tr-lambung" style={{ fontSize: 14 }}>
+                        {ACTION_LABELS[log.action] ?? log.action}
+                        {log.record_id && <span className="muted" style={{ fontWeight: 400, marginLeft: 8 }}>#{log.record_id.slice(0, 8)}</span>}
+                      </div>
+                      <div className="tr-sub">{log.user_email} &middot; {fmt(log.created_at)}</div>
+                    </div>
+                    <I.arrowLeft width="14" height="14" style={{ transform: expanded === log.id ? 'rotate(-90deg)' : 'rotate(180deg)', transition: '.2s', color: 'var(--muted)' }} />
+                  </div>
+                  {expanded === log.id && (
+                    <div style={{ padding: '8px 0', fontSize: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <div className="section-label" style={{ marginBottom: 4 }}>Before</div>
+                        <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
+                          {log.old_data ? JSON.stringify(JSON.parse(log.old_data), null, 2) : 'null'}
+                        </pre>
+                      </div>
+                      <div>
+                        <div className="section-label" style={{ marginBottom: 4 }}>After</div>
+                        <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
+                          {log.new_data ? JSON.stringify(JSON.parse(log.new_data), null, 2) : 'null'}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UserModal({ onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,10 +200,12 @@ function UserModal({ onClose }) {
   }
 
   const ROLE_LABELS = {
-    stockpile_operator: 'Site Operator',
-    jetty_operator: 'Jetty Operator',
-    admin: 'Admin',
-    analytics: 'Analytics',
+    stockpile_operator:  'Site Operator',
+    jetty_operator:      'Jetty Operator',
+    admin:               'Admin',
+    analytics:           'Analytics',
+    site_jetty_operator: 'Site & Jetty',
+    supervisor:          'Supervisor',
   };
 
   return (
@@ -149,6 +235,8 @@ function UserModal({ onClose }) {
                 <option value="jetty_operator">Jetty Operator</option>
                 <option value="admin">Admin</option>
                 <option value="analytics">Analytics</option>
+                <option value="site_jetty_operator">Site &amp; Jetty</option>
+                <option value="supervisor">Supervisor</option>
               </select>
             </Field>
             {error && <div className="alert">{error}</div>}
@@ -198,6 +286,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [bargeDayTotal, setBargeDayTotal] = useState(0);
   const [cumulativeBargeTotal, setCumulativeBargeTotal] = useState(0);
   const [cumulativeNettoJetty, setCumulativeNettoJetty] = useState(0);
@@ -303,11 +392,16 @@ export default function AdminPage() {
   return (
     <Layout title="Admin Dashboard" kicker="MergeCoal" wide>
       {showUsers && <UserModal onClose={() => setShowUsers(false)} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
 
       <div className="admin-actions">
         <button onClick={() => setShowUsers(true)} className="btn btn-ghost">
           <I.users width="18" height="18" />
           {t('navUsers')}
+        </button>
+        <button onClick={() => setShowChangelog(true)} className="btn btn-ghost">
+          <I.refresh width="18" height="18" />
+          Changelog
         </button>
         <a href="/sessions" className="btn btn-ghost">
           <I.shield width="18" height="18" />

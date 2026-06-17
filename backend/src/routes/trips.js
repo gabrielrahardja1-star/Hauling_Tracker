@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { query, queryOne } from '../lib/db.js';
 import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logAudit } from '../lib/audit.js';
 
 const router = Router();
 wrapAsyncRoutes(router);
@@ -13,7 +14,7 @@ function witaDate() {
 }
 
 // POST /trips — CP1: stockpile operator records truck arrival
-router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) => {
+router.post('/', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
   const { no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg } = req.body;
 
   if (!no_lambung || !jetty_destination || !coal_quality || !cuaca_mmi || !tare_site_kg) {
@@ -49,11 +50,12 @@ router.post('/', requireRole('stockpile_operator', 'admin'), async (req, res) =>
     [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, session.session_id]
   );
 
+  await logAudit(req, 'cp1_entry', trip.trip_id, null, trip);
   res.status(201).json(trip);
 });
 
 // PATCH /trips/:id/cp2 — stockpile operator records truck departure
-router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req, res) => {
+router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
   const { gross_site_kg } = req.body;
 
@@ -80,11 +82,12 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin'), async (req,
     [gross_site_kg, netto_site_kg, id]
   );
 
+  await logAudit(req, 'cp2_entry', id, trip, updated);
   res.json(updated);
 });
 
 // PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
-router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res) => {
+router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
   const { gross_jetty_kg, tare_jetty_kg } = req.body;
 
@@ -123,11 +126,12 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin'), async (req, res
     [gross_jetty_kg, tare_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, id]
   );
 
+  await logAudit(req, 'cp3_entry', id, trip, updated);
   res.json(updated);
 });
 
 // GET /trips/today?jetty= — all trips today (all roles)
-router.get('/today', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
+router.get('/today', requireRole('stockpile_operator', 'jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty } = req.query;
   const today = witaDate();
 
@@ -147,7 +151,7 @@ router.get('/today', requireRole('stockpile_operator', 'jetty_operator', 'admin'
 });
 
 // GET /trips/search?no_lambung=&status= — find today's trip by truck ID
-router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
+router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { no_lambung, status } = req.query;
   if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
 
@@ -167,7 +171,7 @@ router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin
 });
 
 // GET /trips/incoming?jetty= — jetty operator: all in_transit trips today
-router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res) => {
+router.get('/incoming', requireRole('jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty } = req.query;
   const today = witaDate();
 
@@ -188,7 +192,7 @@ router.get('/incoming', requireRole('jetty_operator', 'admin'), async (req, res)
 });
 
 // GET /trips/export?from=&to=&jetty= — Excel export (all roles)
-router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin'), async (req, res) => {
+router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { from, to, jetty } = req.query;
   if (!from || !to || !jetty) return res.status(400).json({ error: 'from, to and jetty are required' });
 
@@ -340,7 +344,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
 });
 
 // GET /trips/truck-history?no_lambung=&from=&to= — all-time trips for a truck
-router.get('/truck-history', requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin'), async (req, res) => {
+router.get('/truck-history', requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { no_lambung, from, to } = req.query;
   if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
 
@@ -433,7 +437,7 @@ router.get('/truck-history/export', requireRole('analytics', 'admin'), async (re
 });
 
 // GET /trips — admin/jetty_operator list with filters
-router.get('/', requireRole('admin', 'jetty_operator'), async (req, res) => {
+router.get('/', requireRole('admin', 'jetty_operator', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { date, date_from, date_to, jetty, status } = req.query;
 
   const conditions = [];
@@ -467,8 +471,8 @@ router.patch('/:id/lock', requireRole('admin'), async (req, res) => {
   res.json(updated);
 });
 
-// PATCH /trips/:id — admin free-form edit, recalculates derived fields
-router.patch('/:id', requireRole('admin'), async (req, res) => {
+// PATCH /trips/:id — admin/supervisor free-form edit, recalculates derived fields
+router.patch('/:id', requireRole('admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
@@ -521,6 +525,7 @@ router.patch('/:id', requireRole('admin'), async (req, res) => {
     ]
   );
 
+  await logAudit(req, 'edit_trip', id, trip, updated);
   res.json(updated);
 });
 
