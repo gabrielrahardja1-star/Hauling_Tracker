@@ -1,37 +1,4 @@
 services:
-  clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
-    restart: unless-stopped
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    environment:
-      CLICKHOUSE_DB: hauling_tracker
-      CLICKHOUSE_USER: hauling_user
-      CLICKHOUSE_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - ./clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8123/ping || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      PORT: 3002
-      DATABASE_URL: http://hauling_user:${DB_PASSWORD}@localhost:8123
-      CLICKHOUSE_DB: hauling_tracker
-      JWT_SECRET: ${JWT_SECRET}
-      FRONTEND_URL: http://${SERVER_IP}
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -39,8 +6,3 @@ services:
       - "3003:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - backend
-
-volumes:
-  clickhouse_data:
