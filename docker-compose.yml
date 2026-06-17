@@ -1,15 +1,4 @@
 services:
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      PORT: 3002
-      DATABASE_URL: http://hauling_user:${DB_PASSWORD}@localhost:8123
-      CLICKHOUSE_DB: hauling_tracker
-      JWT_SECRET: ${JWT_SECRET}
-      FRONTEND_URL: http://${SERVER_IP}
-
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -17,5 +6,3 @@ services:
       - "3003:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - backend

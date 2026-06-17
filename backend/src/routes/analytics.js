@@ -9,72 +9,74 @@ wrapAsyncRoutes(router);
 router.use(requireAuth);
 router.use(requireRole('stockpile_operator', 'jetty_operator', 'analytics', 'admin'));
 
-function buildFilters(from, to, jetty) {
+function buildFilters(from, to, jetty, startIdx = 1) {
   const conds = [];
-  const params = {};
-  if (from)  { conds.push('date >= {from: Date}');                params.from = from; }
-  if (to)    { conds.push('date <= {to: Date}');                  params.to = to; }
-  if (jetty) { conds.push('jetty_destination = {jetty: String}'); params.jetty = jetty; }
-  return { extra: conds.length ? `AND ${conds.join(' AND ')}` : '', params };
+  const vals = [];
+  let idx = startIdx;
+  if (from)  { conds.push(`date >= $${idx++}`);                vals.push(from); }
+  if (to)    { conds.push(`date <= $${idx++}`);                vals.push(to); }
+  if (jetty) { conds.push(`jetty_destination = $${idx++}`);    vals.push(jetty); }
+  return { extra: conds.length ? `AND ${conds.join(' AND ')}` : '', vals, nextIdx: idx };
 }
 
-function buildBargeFilters(from, to, jetty) {
+function buildBargeFilters(from, to, jetty, startIdx = 1) {
   const conds = [];
-  const params = {};
-  if (from)  { conds.push('loading_date >= {from: Date}'); params.from = from; }
-  if (to)    { conds.push('loading_date <= {to: Date}');   params.to = to; }
-  if (jetty) { conds.push('jetty = {jetty: String}');      params.jetty = jetty; }
-  return { extra: conds.length ? `AND ${conds.join(' AND ')}` : '', params };
+  const vals = [];
+  let idx = startIdx;
+  if (from)  { conds.push(`loading_date >= $${idx++}`); vals.push(from); }
+  if (to)    { conds.push(`loading_date <= $${idx++}`); vals.push(to); }
+  if (jetty) { conds.push(`jetty = $${idx++}`);         vals.push(jetty); }
+  return { extra: conds.length ? `AND ${conds.join(' AND ')}` : '', vals, nextIdx: idx };
 }
 
 // GET /analytics/overview?from=&to=&jetty=
 router.get('/overview', async (req, res) => {
   const { from, to, jetty } = req.query;
-  const { extra, params } = buildFilters(from, to, jetty);
-  const { extra: bargeExtra, params: bargeParams } = buildBargeFilters(from, to, jetty);
+  const { extra, vals } = buildFilters(from, to, jetty);
+  const { extra: bargeExtra, vals: bargeVals } = buildBargeFilters(from, to, jetty);
 
   const [hauling, byJettyHauling, byDate, bargeRows, byJettyBarge] = await Promise.all([
     query(
-      `SELECT count() AS total_trips, coalesce(sum(netto_site_kg), 0) AS total_netto_kg
-       FROM trips FINAL
+      `SELECT count(*) AS total_trips, coalesce(sum(netto_site_kg), 0) AS total_netto_kg
+       FROM trips
        WHERE netto_site_kg IS NOT NULL ${extra}`,
-      params
+      vals
     ),
 
     query(
       `SELECT jetty_destination AS jetty,
-         count() AS trips,
+         count(*) AS trips,
          coalesce(sum(netto_site_kg), 0) AS netto_kg,
          coalesce(sum(netto_jetty_kg), 0) AS netto_jetty_kg
-       FROM trips FINAL
+       FROM trips
        WHERE netto_site_kg IS NOT NULL ${extra}
        GROUP BY jetty_destination`,
-      params
+      vals
     ),
 
     query(
-      `SELECT toString(date) AS date, count() AS trips,
+      `SELECT date::text AS date, count(*) AS trips,
          coalesce(sum(netto_site_kg), 0) AS netto_kg
-       FROM trips FINAL
+       FROM trips
        WHERE netto_site_kg IS NOT NULL ${extra}
        GROUP BY date
        ORDER BY date ASC`,
-      params
+      vals
     ),
 
     query(
-      `SELECT coalesce(sum(loading_qty_kg), 0) AS total_qty_kg, count() AS total_loadings
+      `SELECT coalesce(sum(loading_qty_kg), 0) AS total_qty_kg, count(*) AS total_loadings
        FROM barge_loadings
        WHERE 1=1 ${bargeExtra}`,
-      bargeParams
+      bargeVals
     ),
 
     query(
-      `SELECT jetty, coalesce(sum(loading_qty_kg), 0) AS qty_kg, count() AS loadings
+      `SELECT jetty, coalesce(sum(loading_qty_kg), 0) AS qty_kg, count(*) AS loadings
        FROM barge_loadings
        WHERE 1=1 ${bargeExtra}
        GROUP BY jetty`,
-      bargeParams
+      bargeVals
     ),
   ]);
 
@@ -118,61 +120,61 @@ router.get('/overview', async (req, res) => {
 // GET /analytics/monitoring?from=&to=&jetty=
 router.get('/monitoring', async (req, res) => {
   const { from, to, jetty } = req.query;
-  const { extra, params } = buildFilters(from, to, jetty);
+  const { extra, vals } = buildFilters(from, to, jetty);
 
   const [deviationBreaches, slaCP1CP2, slaCP2CP3, totals] = await Promise.all([
     query(
       `SELECT
-         trip_id, toString(date) AS date, no_tiket, no_lambung, jetty_destination,
+         trip_id, date::text AS date, no_tiket, no_lambung, jetty_destination,
          netto_site_kg, netto_jetty_kg, deviasi_kg,
-         round(abs(toFloat64(deviasi_kg) / nullIf(netto_site_kg, 0)) * 100, 2) AS deviation_pct,
+         ROUND(ABS(deviasi_kg::numeric / NULLIF(netto_site_kg, 0)) * 100, 2) AS deviation_pct,
          cp3_timestamp
-       FROM trips FINAL
+       FROM trips
        WHERE netto_jetty_kg IS NOT NULL
          AND netto_site_kg > 0
-         AND abs(toFloat64(deviasi_kg) / netto_site_kg) > 0.005
+         AND ABS(deviasi_kg::numeric / netto_site_kg) > 0.005
          ${extra}
-       ORDER BY abs(toFloat64(deviasi_kg) / netto_site_kg) DESC
+       ORDER BY ABS(deviasi_kg::numeric / netto_site_kg) DESC
        LIMIT 100`,
-      params
+      vals
     ),
 
     query(
       `SELECT
-         trip_id, toString(date) AS date, no_tiket, no_lambung, jetty_destination,
+         trip_id, date::text AS date, no_tiket, no_lambung, jetty_destination,
          cp1_timestamp, cp2_timestamp,
-         round(dateDiff('second', cp1_timestamp, cp2_timestamp) / 60) AS minutes_cp1_cp2
-       FROM trips FINAL
+         ROUND(EXTRACT(EPOCH FROM (cp2_timestamp - cp1_timestamp)) / 60) AS minutes_cp1_cp2
+       FROM trips
        WHERE cp1_timestamp IS NOT NULL AND cp2_timestamp IS NOT NULL
-         AND dateDiff('second', cp1_timestamp, cp2_timestamp) / 60 > 30
+         AND EXTRACT(EPOCH FROM (cp2_timestamp - cp1_timestamp)) / 60 > 30
          ${extra}
-       ORDER BY dateDiff('second', cp1_timestamp, cp2_timestamp) DESC
+       ORDER BY (cp2_timestamp - cp1_timestamp) DESC
        LIMIT 100`,
-      params
+      vals
     ),
 
     query(
       `SELECT
-         trip_id, toString(date) AS date, no_tiket, no_lambung, jetty_destination,
+         trip_id, date::text AS date, no_tiket, no_lambung, jetty_destination,
          cp2_timestamp, cp3_timestamp,
-         round(dateDiff('second', cp2_timestamp, cp3_timestamp) / 3600, 1) AS hours_cp2_cp3
-       FROM trips FINAL
+         ROUND(EXTRACT(EPOCH FROM (cp3_timestamp - cp2_timestamp)) / 3600, 1) AS hours_cp2_cp3
+       FROM trips
        WHERE cp2_timestamp IS NOT NULL AND cp3_timestamp IS NOT NULL
-         AND dateDiff('second', cp2_timestamp, cp3_timestamp) / 3600 > 4
+         AND EXTRACT(EPOCH FROM (cp3_timestamp - cp2_timestamp)) / 3600 > 4
          ${extra}
-       ORDER BY dateDiff('second', cp2_timestamp, cp3_timestamp) DESC
+       ORDER BY (cp3_timestamp - cp2_timestamp) DESC
        LIMIT 100`,
-      params
+      vals
     ),
 
     query(
       `SELECT
-         countIf(cp1_timestamp IS NOT NULL AND cp2_timestamp IS NOT NULL) AS eligible_sla_cp1cp2,
-         countIf(cp2_timestamp IS NOT NULL AND cp3_timestamp IS NOT NULL) AS eligible_sla_cp2cp3,
-         countIf(netto_jetty_kg IS NOT NULL AND netto_site_kg > 0) AS eligible_deviation
-       FROM trips FINAL
+         COUNT(*) FILTER (WHERE cp1_timestamp IS NOT NULL AND cp2_timestamp IS NOT NULL) AS eligible_sla_cp1cp2,
+         COUNT(*) FILTER (WHERE cp2_timestamp IS NOT NULL AND cp3_timestamp IS NOT NULL) AS eligible_sla_cp2cp3,
+         COUNT(*) FILTER (WHERE netto_jetty_kg IS NOT NULL AND netto_site_kg > 0) AS eligible_deviation
+       FROM trips
        WHERE 1=1 ${extra}`,
-      params
+      vals
     ),
   ]);
 
@@ -197,30 +199,30 @@ router.get('/monitoring', async (req, res) => {
 // GET /analytics/monitoring/export?from=&to=&jetty= — Excel for deviation breaches
 router.get('/monitoring/export', async (req, res) => {
   const { from, to, jetty } = req.query;
-  const { extra, params } = buildFilters(from, to, jetty);
+  const { extra, vals } = buildFilters(from, to, jetty);
 
   const [deviationBreaches, slaBreaches] = await Promise.all([
     query(
-      `SELECT trip_id, toString(date) AS date, no_tiket, no_lambung, jetty_destination,
+      `SELECT trip_id, date::text AS date, no_tiket, no_lambung, jetty_destination,
          netto_site_kg, netto_jetty_kg, deviasi_kg,
-         round(abs(toFloat64(deviasi_kg) / nullIf(netto_site_kg, 0)) * 100, 2) AS deviation_pct
-       FROM trips FINAL
+         ROUND(ABS(deviasi_kg::numeric / NULLIF(netto_site_kg, 0)) * 100, 2) AS deviation_pct
+       FROM trips
        WHERE netto_jetty_kg IS NOT NULL AND netto_site_kg > 0
-         AND abs(toFloat64(deviasi_kg) / netto_site_kg) > 0.005
+         AND ABS(deviasi_kg::numeric / netto_site_kg) > 0.005
          ${extra}
-       ORDER BY abs(toFloat64(deviasi_kg) / netto_site_kg) DESC`,
-      params
+       ORDER BY ABS(deviasi_kg::numeric / netto_site_kg) DESC`,
+      vals
     ),
     query(
-      `SELECT trip_id, toString(date) AS date, no_tiket, no_lambung, jetty_destination,
+      `SELECT trip_id, date::text AS date, no_tiket, no_lambung, jetty_destination,
          cp2_timestamp, cp3_timestamp,
-         round(dateDiff('second', cp2_timestamp, cp3_timestamp) / 3600, 1) AS hours_cp2_cp3
-       FROM trips FINAL
+         ROUND(EXTRACT(EPOCH FROM (cp3_timestamp - cp2_timestamp)) / 3600, 1) AS hours_cp2_cp3
+       FROM trips
        WHERE cp2_timestamp IS NOT NULL AND cp3_timestamp IS NOT NULL
-         AND dateDiff('second', cp2_timestamp, cp3_timestamp) / 3600 > 4
+         AND EXTRACT(EPOCH FROM (cp3_timestamp - cp2_timestamp)) / 3600 > 4
          ${extra}
-       ORDER BY dateDiff('second', cp2_timestamp, cp3_timestamp) DESC`,
-      params
+       ORDER BY (cp3_timestamp - cp2_timestamp) DESC`,
+      vals
     ),
   ]);
 
