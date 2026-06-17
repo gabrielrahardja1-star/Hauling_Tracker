@@ -1,65 +1,65 @@
 # Hauling Tracker — User Access Guide
 
-## Sela · *Site Operator*
+## site001 (Sela) · *Site Operator*
 - Record truck arrival at site (CP1)
 - Record truck departure from site (CP2)
 - View & search today's trips
 - Export trip data
 
-## Admin Site *(shared account)* · *Site Operator*
-- Same as Sela
+## site002 (Admin Site — shared) · *Site Operator*
+- Same as site001
 
 ---
 
-## Hervin · *Jetty Operator*
+## jetty001 (Hervin) · *Jetty Operator*
 - Record truck arrival at jetty (CP3)
 - Record barge loading
 - View trucks in transit from site
 - View & search today's trips
 - Export trip data
 
-## Fahmi · *Jetty Operator*
-- Same as Hervin
+## jetty002 (Fahmi) · *Jetty Operator*
+- Same as jetty001
 
-## Josua · *Jetty Operator*
-- Same as Hervin
+## jetty003 (Josua) · *Jetty Operator*
+- Same as jetty001
 
-## Admin Jetty 001 *(shared)* · *Jetty Operator*
-- Same as Hervin
+## jetty004 (shared) · *Jetty Operator*
+- Same as jetty001
 
-## Admin Jetty 002 *(shared)* · *Jetty Operator*
-- Same as Hervin
+## jetty005 (shared) · *Jetty Operator*
+- Same as jetty001
 
-## Admin Jetty 003 *(shared)* · *Jetty Operator*
-- Same as Hervin
+## jetty006 (shared) · *Jetty Operator*
+- Same as jetty001
 
-## Admin Jetty 004 *(shared)* · *Jetty Operator*
-- Same as Hervin
+## jetty007 (shared) · *Jetty Operator*
+- Same as jetty001
 
 ---
 
-## Sun Zhenbo · *Site & Jetty*
+## both001 (Sun Zhenbo) · *Site & Jetty*
 - All Site Operator features
 - All Jetty Operator features
 
 ---
 
-## Maya · *Supervisor*
+## super001 (Maya) · *Supervisor*
 - All Site & Jetty features
 - Edit trip records
 - Delete trip records
 - View full audit changelog (who did what and when)
 
-## Lihao · *Supervisor*
-- Same as Maya
+## super002 (Lihao) · *Supervisor*
+- Same as super001
 
 ---
 
-## Bu Vero · *Reports*
+## analytics001 (Vero) · *Analytics*
 - View analytics & reports
 - View truck history
 - Export truck history
 - View barge loadings
 
-## Syella · *Reports*
-- Same as Bu Vero
+## analytics002 (Syella) · *Analytics*
+- Same as analytics001
