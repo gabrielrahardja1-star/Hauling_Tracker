@@ -25,11 +25,88 @@ import { api } from '../lib/api';
 
 const CP1_INITIAL = { no_lambung: '', jetty_destination: '', coal_quality: '', cuaca_mmi: '', tare_site_kg: '' };
 
-function SessionBanner({ session, onEnd }) {
-  const { t } = useLang();
+function JettySessionRow({ label, tripCount, nettoKg, endedAt, onEndJetty }) {
   const [ending, setEnding] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
+
+  const isEnded = !!endedAt;
+
+  async function handleEnd() {
+    setEnding(true);
+    setError('');
+    try {
+      await onEndJetty();
+      setConfirm(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  return (
+    <div style={{
+      flex: 1, padding: '10px 12px', borderRadius: 8,
+      border: '1.5px solid', borderColor: isEnded ? 'var(--border)' : 'var(--accent)',
+      background: isEnded ? 'var(--surface)' : 'var(--accent-subtle, #f0fdf4)',
+    }}>
+      <div className="between" style={{ alignItems: 'center', marginBottom: confirm ? 8 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
+            color: isEnded ? 'var(--muted)' : 'var(--accent)',
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: isEnded ? 'var(--muted)' : 'var(--accent)',
+              display: 'inline-block', flexShrink: 0,
+            }} />
+            {label}
+          </span>
+          <span className="muted" style={{ fontSize: 11 }}>
+            {tripCount ?? 0} trip{nettoKg ? ` · ${(nettoKg / 1000).toFixed(1)} t` : ''}
+          </span>
+        </div>
+        {!isEnded && !confirm && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 11, padding: '3px 8px' }}
+            onClick={() => setConfirm(true)}
+          >
+            Akhiri
+          </button>
+        )}
+        {isEnded && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Selesai
+          </span>
+        )}
+      </div>
+      {confirm && (
+        <div>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            Akhiri sesi {label}?
+          </div>
+          {error && <div className="alert" style={{ marginBottom: 6, fontSize: 12 }}>{error}</div>}
+          <div className="row" style={{ gap: 6 }}>
+            <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => { setConfirm(false); setError(''); }}>
+              Batal
+            </button>
+            <button type="button" className="btn btn-accent btn-sm" style={{ fontSize: 11 }} disabled={ending} onClick={handleEnd}>
+              {ending ? <Spinner className="h-4 w-4" /> : 'Ya, Akhiri'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SessionBanner({ session, onEndJetty }) {
+  const { t } = useLang();
 
   if (!session) {
     return (
@@ -43,68 +120,42 @@ function SessionBanner({ session, onEnd }) {
 
   const isActive = session.status === 'active';
 
-  async function handleEnd() {
-    setEnding(true);
-    setError('');
-    try {
-      await onEnd(session.session_id);
-      setConfirm(false);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setEnding(false);
-    }
-  }
-
   return (
     <div className="card" style={{ padding: '12px 16px', marginBottom: 16, borderColor: isActive ? 'var(--accent)' : 'var(--border)' }}>
-      <div className="between" style={{ alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
+          color: isActive ? 'var(--accent)' : 'var(--muted)',
+        }}>
           <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6,
-            color: isActive ? 'var(--accent)' : 'var(--muted)',
-          }}>
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: isActive ? 'var(--accent)' : 'var(--muted)',
-              display: 'inline-block',
-            }} />
-            {isActive ? t('sessionActive') : t('sessionEnded')}
-          </span>
-          <span className="muted" style={{ fontSize: 12 }}>
-            {session.trip_count ?? 0} trip
-            {session.total_netto_kg ? ` · ${(session.total_netto_kg / 1000).toFixed(1)} t` : ''}
-          </span>
-        </div>
-        {isActive && !confirm && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            style={{ fontSize: 12, padding: '4px 10px' }}
-            onClick={() => setConfirm(true)}
-          >
-            {t('sessionEndBtn')}
-          </button>
-        )}
+            width: 7, height: 7, borderRadius: '50%',
+            background: isActive ? 'var(--accent)' : 'var(--muted)',
+            display: 'inline-block',
+          }} />
+          {isActive ? t('sessionActive') : t('sessionEnded')}
+        </span>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {session.trip_count ?? 0} trip
+          {session.total_netto_kg ? ` · ${(session.total_netto_kg / 1000).toFixed(1)} t` : ''}
+        </span>
       </div>
-
-      {confirm && (
-        <div style={{ marginTop: 10 }}>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
-            {t('sessionEndConfirm')}
-          </div>
-          {error && <div className="alert" style={{ marginBottom: 8 }}>{error}</div>}
-          <div className="row" style={{ gap: 8 }}>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setConfirm(false); setError(''); }}>
-              {t('sessionCancel')}
-            </button>
-            <button type="button" className="btn btn-accent btn-sm" disabled={ending} onClick={handleEnd}>
-              {ending ? <Spinner className="h-4 w-4" /> : t('sessionConfirmEnd')}
-            </button>
-          </div>
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <JettySessionRow
+          label="Hasnur"
+          tripCount={session.hasnur_trip_count}
+          nettoKg={session.hasnur_netto_kg}
+          endedAt={session.hasnur_ended_at}
+          onEndJetty={() => onEndJetty(session.session_id, 'hasnur')}
+        />
+        <JettySessionRow
+          label="Talenta"
+          tripCount={session.talenta_trip_count}
+          nettoKg={session.talenta_netto_kg}
+          endedAt={session.talenta_ended_at}
+          onEndJetty={() => onEndJetty(session.session_id, 'talenta')}
+        />
+      </div>
     </div>
   );
 }
@@ -113,18 +164,48 @@ function scrollContentTop() {
   document.querySelector('.screen')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+const JETTY_TABS = [
+  { key: 'all', label: 'Semua' },
+  { key: 'hasnur', label: 'Hasnur' },
+  { key: 'talenta', label: 'Talenta' },
+];
+
 function TodayList({ trips, loading, onRefresh, onSelectPending }) {
   const { t } = useLang();
+  const [jettyTab, setJettyTab] = useState('all');
+
+  const displayed = jettyTab === 'all' ? trips : trips.filter((tr) => tr.jetty_destination === jettyTab);
+
   return (
-    <TripListCard
-      title={t('todayTitle')}
-      sub={`${trips.length} ${t('todaySub')}`}
-      trips={trips}
-      loading={loading}
-      onRefresh={onRefresh}
-      getTap={onSelectPending ? (tr) => (tr.status === 'pending' ? () => onSelectPending(tr) : null) : null}
-      cta={t('todayCta')}
-    />
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {JETTY_TABS.map((jt) => (
+          <button
+            key={jt.key}
+            type="button"
+            onClick={() => setJettyTab(jt.key)}
+            style={{
+              padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+              border: '1.5px solid', cursor: 'pointer',
+              borderColor: jettyTab === jt.key ? 'var(--accent)' : 'var(--border)',
+              background: jettyTab === jt.key ? 'var(--accent-subtle, #f0fdf4)' : 'var(--surface)',
+              color: jettyTab === jt.key ? 'var(--accent)' : 'var(--fg)',
+            }}
+          >
+            {jt.label}
+          </button>
+        ))}
+      </div>
+      <TripListCard
+        title={t('todayTitle')}
+        sub={`${displayed.length} ${t('todaySub')}`}
+        trips={displayed}
+        loading={loading}
+        onRefresh={onRefresh}
+        getTap={onSelectPending ? (tr) => (tr.status === 'pending' ? () => onSelectPending(tr) : null) : null}
+        cta={t('todayCta')}
+      />
+    </div>
   );
 }
 
@@ -462,8 +543,8 @@ export default function StockpileOperatorPage() {
     }
   }, []);
 
-  async function handleEndSession(sessionId) {
-    await api.endSession(sessionId);
+  async function handleEndJetty(sessionId, jetty) {
+    await api.endSessionJetty(sessionId, jetty);
     await fetchSession();
   }
 
@@ -532,7 +613,7 @@ export default function StockpileOperatorPage() {
         <div className="op-sidebar">{sidebarNav}</div>
         <div className="op-main">
           {(tab === 'cp1' || tab === 'cp2' || tab === 'trips') && (
-            <SessionBanner session={session} onEnd={handleEndSession} />
+            <SessionBanner session={session} onEndJetty={handleEndJetty} />
           )}
           {tab === 'cp1' && (
             <div className="op-two-col">

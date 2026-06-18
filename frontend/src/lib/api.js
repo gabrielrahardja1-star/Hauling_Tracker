@@ -134,6 +134,7 @@ export const api = {
   // Sessions
   getTodaySession: ()         => request('GET', '/sessions/today'),
   endSession: (id)            => request('PATCH', `/sessions/${id}/end`, {}),
+  endSessionJetty: (id, jetty) => request('PATCH', `/sessions/${id}/end-jetty`, { jetty }),
   listSessions: ()            => request('GET', '/sessions'),
   lockSessionSite: (id)       => request('PATCH', `/sessions/${id}/lock-site`, {}),
   lockSessionJetty: (id)      => request('PATCH', `/sessions/${id}/lock-jetty`, {}),
