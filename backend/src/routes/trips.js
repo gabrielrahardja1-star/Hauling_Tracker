@@ -89,7 +89,7 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin', 'supervisor'
 // PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
 router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
-  const { gross_jetty_kg, tare_jetty_kg } = req.body;
+  const { gross_jetty_kg, tare_jetty_kg, stockpile_code } = req.body;
 
   if (!gross_jetty_kg || gross_jetty_kg <= 0) {
     return res.status(400).json({ error: 'gross_jetty_kg is required and must be positive' });
@@ -119,11 +119,12 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), a
          netto_jetty_kg   = $3,
          compare_gross_kg = $4,
          deviasi_kg       = $5,
+         stockpile_code   = $6,
          cp3_timestamp    = now(),
          status           = 'completed'
-     where trip_id = $6
+     where trip_id = $7
      returning *`,
-    [gross_jetty_kg, tare_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, id]
+    [gross_jetty_kg, tare_kg, netto_jetty_kg, compare_gross_kg, deviasi_kg, (stockpile_code || '').trim(), id]
   );
 
   await logAudit(req, 'cp3_entry', id, trip, updated);

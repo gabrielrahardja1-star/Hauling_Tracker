@@ -199,6 +199,7 @@ export default function JettyOperatorPage() {
 
   const [grossJetty, setGrossJetty] = useState('');
   const [tareJetty, setTareJetty] = useState('');
+  const [stockpileCode, setStockpileCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -279,6 +280,7 @@ export default function JettyOperatorPage() {
     try {
       const payload = { gross_jetty_kg: grossKg };
       if (tareKg) payload.tare_jetty_kg = tareKg;
+      if (stockpileCode) payload.stockpile_code = stockpileCode;
       const updated = await api.submitCP3(trip.trip_id, payload);
       setSuccess(updated);
       setTrip(null);
@@ -297,6 +299,7 @@ export default function JettyOperatorPage() {
     setSearchError('');
     setGrossJetty('');
     setTareJetty('');
+    setStockpileCode('');
     setSubmitError('');
   }
 
@@ -464,6 +467,25 @@ export default function JettyOperatorPage() {
                 required
               />
             </Field>
+
+            {trip && (
+              <Field label={t('cp3StockpileCode')}>
+                <select className="input" value={stockpileCode} onChange={(e) => setStockpileCode(e.target.value)}>
+                  <option value="">— Pilih —</option>
+                  {trip.jetty_destination === 'talenta' && <>
+                    <option value="Line 1">Line 1</option>
+                    <option value="Line 2">Line 2</option>
+                    <option value="Line 3">Line 3</option>
+                    <option value="Line 4">Line 4</option>
+                    <option value="Stockroom 2">Stockroom 2</option>
+                  </>}
+                  {trip.jetty_destination === 'hasnur' && <>
+                    <option value="Jetty R">Jetty R</option>
+                    <option value="Jetty H/J">Jetty H/J</option>
+                  </>}
+                </select>
+              </Field>
+            )}
 
             {trip && (
               <Field label={t('cp3TareLabel')} hint={t('cp3TareHint')}>

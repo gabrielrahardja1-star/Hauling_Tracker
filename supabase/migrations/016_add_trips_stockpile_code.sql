@@ -1,0 +1,1 @@
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS stockpile_code text NOT NULL DEFAULT '';

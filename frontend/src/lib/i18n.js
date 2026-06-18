@@ -106,6 +106,7 @@ export const translations = {
     bargeStockpileCode: 'Kode Stockpile',
 
     // CP3 tare at Talenta
+    cp3StockpileCode: 'Stockpile Tujuan',
     cp3TareLabel: 'Berat Kosong di Jetty',
     cp3TareHint: 'Tara jetty - kg',
     cp3CompareTare: 'Compare Tare (Jetty vs Site)',
@@ -415,6 +416,7 @@ export const translations = {
     bargeStockpileCode: '料场编号',
 
     // CP3 tare at Talenta
+    cp3StockpileCode: '库存目的地',
     cp3TareLabel: '码头皮重',
     cp3TareHint: '码头皮重 - kg',
     cp3CompareTare: '皮重对比（码头 vs 现场）',
