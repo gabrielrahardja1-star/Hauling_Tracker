@@ -96,7 +96,7 @@ function BargePanel({ defaultJetty }) {
       {balance && form.jetty && (
         <div className="card" style={{ padding: '14px 16px', borderColor: balance.remaining_kg >= 0 ? 'var(--accent)' : 'var(--danger)' }}>
           <div className="section-label" style={{ marginBottom: 10 }}>
-            {t('bargeRemaining') || `Sisa Batubara — ${jettyLabel}`}
+            {`${t('bargeRemaining') || 'Sisa Batubara'} — ${jettyLabel}`}
           </div>
           <div className="between" style={{ marginBottom: 6 }}>
             <span className="muted" style={{ fontSize: 13 }}>{t('bargeArrived') || 'Tiba di Jetty'}</span>

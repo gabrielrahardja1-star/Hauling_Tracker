@@ -168,6 +168,10 @@ export const translations = {
     bargeLoadingDate: 'Tanggal Loading',
     bargeQtyError: 'Qty harus lebih dari 0 kg.',
     bargeTotal: 'Total',
+    bargeRemaining: 'Sisa Batubara',
+    bargeArrived: 'Tiba di Jetty',
+    bargeLoaded: 'Dimuat ke Tongkang',
+    bargeRemainingLabel: 'Sisa',
 
     // CP3 form
     cp3BannerTitle: 'Timbang jetty selesai',
@@ -505,6 +509,10 @@ export const translations = {
     bargeHistory: '装载历史',
     bargeEmpty: '暂无装载数据',
     bargeTotal: '合计',
+    bargeRemaining: '剩余煤炭',
+    bargeArrived: '到港煤炭',
+    bargeLoaded: '已装驳船',
+    bargeRemainingLabel: '剩余',
 
     // CP3 form
     cp3BannerTitle: '码头称重完成',
