@@ -36,6 +36,14 @@ function BargePanel({ defaultJetty }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  const [balance, setBalance] = useState(null);
+
+  const fetchBalance = useCallback(async () => {
+    if (!form.jetty) { setBalance(null); return; }
+    try {
+      setBalance(await api.getJettyBalance(form.jetty));
+    } catch { /* non-critical */ }
+  }, [form.jetty]);
 
   const fetchLoadings = useCallback(async () => {
     setLoading(true);
@@ -45,7 +53,7 @@ function BargePanel({ defaultJetty }) {
     finally { setLoading(false); }
   }, [form.jetty]);
 
-  useEffect(() => { fetchLoadings(); }, [fetchLoadings]);
+  useEffect(() => { fetchLoadings(); fetchBalance(); }, [fetchLoadings, fetchBalance]);
 
   function set(field, value) {
     setForm((f) => ({
@@ -69,6 +77,7 @@ function BargePanel({ defaultJetty }) {
       setSuccess(created);
       setForm((f) => ({ ...BARGE_INITIAL, jetty: f.jetty, loading_date: f.loading_date }));
       fetchLoadings();
+      fetchBalance();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,14 +89,41 @@ function BargePanel({ defaultJetty }) {
 
   const totalQty = loadings.reduce((s, l) => s + Number(l.loading_qty_kg), 0);
 
+  const jettyLabel = form.jetty === 'hasnur' ? 'Hasnur' : form.jetty === 'talenta' ? 'Talenta' : '';
+
   const historyPane = (
-    <div className="card">
-      <div className="between" style={{ marginBottom: 12 }}>
-        <div className="section-label">{t('bargeHistory')}</div>
-        <button type="button" onClick={fetchLoadings} className="btn btn-ghost btn-sm">
-          <I.refresh width="16" height="16" />
-        </button>
-      </div>
+    <div className="stack" style={{ gap: 12 }}>
+      {balance && form.jetty && (
+        <div className="card" style={{ padding: '14px 16px', borderColor: balance.remaining_kg >= 0 ? 'var(--accent)' : 'var(--danger)' }}>
+          <div className="section-label" style={{ marginBottom: 10 }}>
+            {t('bargeRemaining') || `Sisa Batubara — ${jettyLabel}`}
+          </div>
+          <div className="between" style={{ marginBottom: 6 }}>
+            <span className="muted" style={{ fontSize: 13 }}>{t('bargeArrived') || 'Tiba di Jetty'}</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 14 }}>{fw(balance.arrived_kg)} {unit}</span>
+          </div>
+          <div className="between" style={{ marginBottom: 8 }}>
+            <span className="muted" style={{ fontSize: 13 }}>{t('bargeLoaded') || 'Dimuat ke Tongkang'}</span>
+            <span style={{ fontFamily: 'var(--font-num)', fontWeight: 700, fontSize: 14 }}>− {fw(balance.loaded_kg)} {unit}</span>
+          </div>
+          <div className="between" style={{ paddingTop: 8, borderTop: '1.5px solid var(--border)' }}>
+            <span style={{ fontSize: 14, fontWeight: 800 }}>{t('bargeRemainingLabel') || 'Sisa'}</span>
+            <span style={{
+              fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 20,
+              color: balance.remaining_kg >= 0 ? 'var(--accent)' : 'var(--danger)',
+            }}>
+              {fw(balance.remaining_kg)} {unit}
+            </span>
+          </div>
+        </div>
+      )}
+      <div className="card">
+        <div className="between" style={{ marginBottom: 12 }}>
+          <div className="section-label">{t('bargeHistory')}</div>
+          <button type="button" onClick={() => { fetchLoadings(); fetchBalance(); }} className="btn btn-ghost btn-sm">
+            <I.refresh width="16" height="16" />
+          </button>
+        </div>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spinner className="h-6 w-6" /></div>
       ) : loadings.length === 0 ? (
@@ -111,6 +147,7 @@ function BargePanel({ defaultJetty }) {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 

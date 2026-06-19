@@ -117,6 +117,25 @@ router.get('/overview', async (req, res) => {
   });
 });
 
+// GET /analytics/jetty-balance?jetty=hasnur|talenta
+router.get('/jetty-balance', async (req, res) => {
+  const { jetty } = req.query;
+  if (!jetty) return res.status(400).json({ error: 'jetty is required' });
+
+  const rows = await query(
+    `SELECT
+       COALESCE(SUM(netto_jetty_kg), 0) AS arrived_kg,
+       (SELECT COALESCE(SUM(loading_qty_kg), 0) FROM barge_loadings WHERE jetty = $1) AS loaded_kg
+     FROM trips
+     WHERE jetty_destination = $1 AND netto_jetty_kg IS NOT NULL`,
+    [jetty]
+  );
+
+  const arrived = Number(rows[0]?.arrived_kg ?? 0);
+  const loaded  = Number(rows[0]?.loaded_kg  ?? 0);
+  res.json({ arrived_kg: arrived, loaded_kg: loaded, remaining_kg: arrived - loaded });
+});
+
 // GET /analytics/monitoring?from=&to=&jetty=
 router.get('/monitoring', async (req, res) => {
   const { from, to, jetty } = req.query;

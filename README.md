@@ -103,3 +103,16 @@ See [DEPLOY.md](DEPLOY.md) for full server setup.
 > ```
 
 See [docs/user-access-guide.md](docs/user-access-guide.md) for the full team username/role mapping.
+
+---
+
+## Documentation
+
+| Document | Audience |
+|----------|---------|
+| [docs/SOP.md](docs/SOP.md) | All users — granular step-by-step operating procedures per role |
+| [docs/TECHNICAL.md](docs/TECHNICAL.md) | Developers, DevOps — architecture, API reference, schema, deployment |
+| [docs/BUSINESS.md](docs/BUSINESS.md) | Operations, management — workflow, roles, metrics, exports |
+| [docs/user-access-guide.md](docs/user-access-guide.md) | Team members — per-user account capabilities |
+| [DATABASE.md](DATABASE.md) | DevOps — migration runbook, common DB fixes |
+| [DEPLOY.md](DEPLOY.md) | DevOps — full VPS server setup guide |

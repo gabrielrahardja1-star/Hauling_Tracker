@@ -94,6 +94,7 @@ export const api = {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/analytics/overview${q ? `?${q}` : ''}`);
   },
+  getJettyBalance: (jetty) => request('GET', `/analytics/jetty-balance?jetty=${jetty}`),
   getAnalyticsMonitoring: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/analytics/monitoring${q ? `?${q}` : ''}`);
