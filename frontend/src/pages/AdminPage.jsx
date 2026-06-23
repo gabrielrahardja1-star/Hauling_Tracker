@@ -82,10 +82,11 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
 }
 
 const ACTION_LABELS = {
-  cp1_entry:  'CP1 — Truck arrived at site',
-  cp2_entry:  'CP2 — Truck departed site',
-  cp3_entry:  'CP3 — Truck arrived at jetty',
-  edit_trip:  'Trip edited',
+  cp1_entry:   'CP1 — Truck arrived at site',
+  cp2_entry:   'CP2 — Truck departed site',
+  cp3_entry:   'CP3 — Truck arrived at jetty',
+  edit_trip:   'Trip edited',
+  delete_trip: 'Trip deleted',
 };
 
 function ChangelogModal({ onClose }) {
@@ -374,6 +375,16 @@ export default function AdminPage() {
     }
   }
 
+  async function handleDeleteTrip(tripId, noLambung, noTiket) {
+    if (!confirm(`Delete trip #${noTiket} (${noLambung})? This cannot be undone.`)) return;
+    try {
+      await api.deleteTrip(tripId);
+      setTrips((prev) => prev.filter((t) => t.trip_id !== tripId));
+    } catch (err) {
+      alert(`Delete failed: ${err.message}`);
+    }
+  }
+
   const JETTY_OPTS = [{ value: 'hasnur', label: 'Hasnur' }, { value: 'talenta', label: 'Talenta' }];
   const QUALITY_OPTS = [{ value: 'raw', label: 'Raw' }, { value: 'clean', label: 'Clean' }];
   const STATUS_OPTS = [
@@ -515,6 +526,7 @@ export default function AdminPage() {
                     <SortTh key={key} label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={toggleSort} />
                   ))}
                   <th style={{ textAlign: 'center', width: 48 }}>Lock</th>
+                  <th style={{ textAlign: 'center', width: 48 }}>Del</th>
                 </tr>
               </thead>
               <tbody>
@@ -553,6 +565,16 @@ export default function AdminPage() {
                         style={{ color: locked ? 'var(--brand)' : 'var(--text-muted)' }}
                       >
                         <I.shield width="16" height="16" />
+                      </IconButton>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <IconButton
+                        label="Delete trip"
+                        onClick={() => handleDeleteTrip(t.trip_id, t.no_lambung, t.no_tiket)}
+                        style={{ color: locked ? 'var(--text-muted)' : 'var(--danger)' }}
+                        disabled={locked}
+                      >
+                        <I.close width="16" height="16" />
                       </IconButton>
                     </td>
                   </tr>

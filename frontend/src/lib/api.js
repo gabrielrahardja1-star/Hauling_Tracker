@@ -70,6 +70,9 @@ export const api = {
   // Admin: toggle lock
   lockTrip: (id) => request('PATCH', `/trips/${id}/lock`),
 
+  // Admin: delete trip
+  deleteTrip: (id) => request('DELETE', `/trips/${id}`),
+
   // Admin: Excel export
   async exportTrips(from, to, jetty) {
     const token = _getToken();

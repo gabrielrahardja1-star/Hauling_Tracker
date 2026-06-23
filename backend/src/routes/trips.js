@@ -459,6 +459,18 @@ router.get('/', requireRole('admin', 'jetty_operator', 'site_jetty_operator', 's
   res.json(trips);
 });
 
+// DELETE /trips/:id — admin only, permanently deletes a trip
+router.delete('/:id', requireRole('admin'), async (req, res) => {
+  const { id } = req.params;
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be deleted' });
+
+  await query('delete from trips where trip_id = $1', [id]);
+  await logAudit(req, 'delete_trip', id, trip, null);
+  res.status(204).end();
+});
+
 // PATCH /trips/:id/lock — admin only, toggles is_locked
 router.patch('/:id/lock', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
