@@ -151,22 +151,33 @@ router.get('/today', requireRole('stockpile_operator', 'jetty_operator', 'admin'
   res.json(trips);
 });
 
-// GET /trips/search?no_lambung=&status= — find today's trip by truck ID
+// GET /trips/search?no_lambung=&status= — find today's trip by truck ID, falling back to any in_transit trip
 router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { no_lambung, status } = req.query;
   if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
 
   const today = witaDate();
-  const values = [today, no_lambung.trim().toUpperCase()];
-  let sql = 'select * from trips where date = $1 and no_lambung = $2';
+  const lambung = no_lambung.trim().toUpperCase();
 
+  // First try today
+  const values = [today, lambung];
+  let sql = 'select * from trips where date = $1 and no_lambung = $2';
   if (status) {
     sql += ' and status = $3';
     values.push(status);
   }
 
-  const trip = await queryOne(sql, values);
-  if (!trip) return res.status(404).json({ error: 'No matching trip found for this truck today' });
+  let trip = await queryOne(sql, values);
+
+  // Fall back to any in_transit trip for this truck (overnight trips)
+  if (!trip && !status) {
+    trip = await queryOne(
+      `select * from trips where no_lambung = $1 and status = 'in_transit' order by date desc limit 1`,
+      [lambung]
+    );
+  }
+
+  if (!trip) return res.status(404).json({ error: 'No matching trip found for this truck' });
 
   res.json(trip);
 });
