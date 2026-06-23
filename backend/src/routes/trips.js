@@ -171,16 +171,15 @@ router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin
   res.json(trip);
 });
 
-// GET /trips/incoming?jetty= — jetty operator: all in_transit trips today
+// GET /trips/incoming?jetty= — jetty operator: all in_transit trips (any date)
 router.get('/incoming', requireRole('jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty } = req.query;
-  const today = witaDate();
 
-  const conditions = [`date = $1`, `status = 'in_transit'`];
-  const values = [today];
+  const conditions = [`status = 'in_transit'`];
+  const values = [];
 
   if (jetty) {
-    conditions.push(`jetty_destination = $2`);
+    conditions.push(`jetty_destination = $1`);
     values.push(jetty);
   }
 
