@@ -244,7 +244,13 @@ export default function JettyOperatorPage() {
   const fetchTrips = useCallback(async () => {
     setTripsLoading(true);
     try {
-      setAllTrips(await api.getTodayTrips(jettyFilter));
+      const [today, incoming] = await Promise.all([
+        api.getTodayTrips(jettyFilter),
+        api.getIncomingTrips(jettyFilter),
+      ]);
+      const seen = new Set(today.map((t) => t.trip_id));
+      const overnight = incoming.filter((t) => !seen.has(t.trip_id));
+      setAllTrips([...overnight, ...today]);
     } catch {
       /* silent refresh failure */
     } finally {
