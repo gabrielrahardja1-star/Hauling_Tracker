@@ -66,7 +66,7 @@ function JettySessionRow({ label, tripCount, nettoKg, endedAt, onEndJetty }) {
             {label}
           </span>
           <span className="muted" style={{ fontSize: 11 }}>
-            {tripCount ?? 0} trip{nettoKg ? ` · ${(nettoKg / 1000).toFixed(1)} t` : ''}
+            {tripCount ?? 0} trip{nettoKg ? ` · ${(nettoKg / 1000).toFixed(2)} t` : ''}
           </span>
         </div>
         {!isEnded && !confirm && (
@@ -137,7 +137,7 @@ function SessionBanner({ session, onEndJetty }) {
         </span>
         <span className="muted" style={{ fontSize: 12 }}>
           {session.trip_count ?? 0} trip
-          {session.total_netto_kg ? ` · ${(session.total_netto_kg / 1000).toFixed(1)} t` : ''}
+          {session.total_netto_kg ? ` · ${(session.total_netto_kg / 1000).toFixed(2)} t` : ''}
         </span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
