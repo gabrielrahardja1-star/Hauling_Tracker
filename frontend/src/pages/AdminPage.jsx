@@ -134,7 +134,23 @@ function ChangelogModal({ onClose }) {
                     <div>
                       <div className="tr-lambung" style={{ fontSize: 14 }}>
                         {ACTION_LABELS[log.action] ?? log.action}
-                        {log.record_id && <span className="muted" style={{ fontWeight: 400, marginLeft: 8 }}>#{log.record_id.slice(0, 8)}</span>}
+                        {(() => {
+                          try {
+                            const d = log.new_data ? JSON.parse(log.new_data) : null;
+                            const truck = d?.no_lambung;
+                            const netto = log.action === 'cp3_entry' ? d?.netto_jetty_kg
+                                        : log.action === 'cp2_entry' ? d?.netto_site_kg
+                                        : log.action === 'cp1_entry' ? d?.tare_site_kg
+                                        : null;
+                            if (!truck) return null;
+                            return (
+                              <span style={{ fontWeight: 600, marginLeft: 8 }}>
+                                {truck}
+                                {netto != null && <span className="muted" style={{ fontWeight: 400, marginLeft: 6 }}>{(netto / 1000).toFixed(2)} t</span>}
+                              </span>
+                            );
+                          } catch { return null; }
+                        })()}
                       </div>
                       <div className="tr-sub">{log.user_email} &middot; {fmt(log.created_at)}</div>
                     </div>
@@ -337,8 +353,8 @@ export default function AdminPage() {
   }, [fetchTrips]);
 
   async function handleExport() {
-    if (!filters.from || !filters.to || !filters.jetty) {
-      alert('Please select a date range and a jetty to export');
+    if (!filters.from || !filters.to) {
+      alert('Please select a date range to export');
       return;
     }
     setExportLoading(true);
@@ -347,7 +363,7 @@ export default function AdminPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `trips_${filters.from}_${filters.to}_${filters.jetty}.xlsx`;
+      a.download = `trips_${filters.from}_${filters.to}_${filters.jetty || 'all'}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -430,7 +446,7 @@ export default function AdminPage() {
           <I.anchor width="18" height="18" />
           {t('navJetty')}
         </a>
-        <button onClick={handleExport} disabled={exportLoading || !filters.from || !filters.to || !filters.jetty} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
+        <button onClick={handleExport} disabled={exportLoading || !filters.from || !filters.to} className="btn btn-brand" style={{ marginLeft: 'auto' }}>
           {exportLoading ? <Spinner className="h-4 w-4" /> : <I.download width="18" height="18" />}
           {t('navExport')}
         </button>
@@ -488,6 +504,9 @@ export default function AdminPage() {
             />
             <IconButton className="icon-muted" label={t('refresh')} onClick={fetchTrips}>
               <I.refresh width="18" height="18" />
+            </IconButton>
+            <IconButton className="icon-muted" label={exportLoading ? 'Exporting…' : t('navExport')} onClick={handleExport} disabled={exportLoading || !filters.from || !filters.to}>
+              {exportLoading ? <Spinner className="h-4 w-4" /> : <I.download width="18" height="18" />}
             </IconButton>
             <IconButton className="icon-muted" label={tableFullscreen ? t('exitFullscreen') : t('fullscreen')} onClick={() => setTableFullscreen((v) => !v)}>
               {tableFullscreen ? <I.compress width="18" height="18" /> : <I.expand width="18" height="18" />}

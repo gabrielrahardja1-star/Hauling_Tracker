@@ -11,3 +11,5 @@ CREATE TABLE audit_log (
 
 CREATE INDEX audit_log_record_id_idx ON audit_log (record_id);
 CREATE INDEX audit_log_created_at_idx ON audit_log (created_at DESC);
+
+GRANT INSERT, SELECT ON TABLE audit_log TO hauling_user;
