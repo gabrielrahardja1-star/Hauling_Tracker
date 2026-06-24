@@ -136,7 +136,7 @@ function ChangelogModal({ onClose }) {
                         {ACTION_LABELS[log.action] ?? log.action}
                         {(() => {
                           try {
-                            const d = log.new_data ? JSON.parse(log.new_data) : null;
+                            const d = log.new_data ?? null;
                             const truck = d?.no_lambung;
                             const netto = log.action === 'cp3_entry' ? d?.netto_jetty_kg
                                         : log.action === 'cp2_entry' ? d?.netto_site_kg
@@ -161,13 +161,13 @@ function ChangelogModal({ onClose }) {
                       <div>
                         <div className="section-label" style={{ marginBottom: 4 }}>Before</div>
                         <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
-                          {log.old_data ? JSON.stringify(JSON.parse(log.old_data), null, 2) : 'null'}
+                          {log.old_data ? JSON.stringify(log.old_data, null, 2) : 'null'}
                         </pre>
                       </div>
                       <div>
                         <div className="section-label" style={{ marginBottom: 4 }}>After</div>
                         <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
-                          {log.new_data ? JSON.stringify(JSON.parse(log.new_data), null, 2) : 'null'}
+                          {log.new_data ? JSON.stringify(log.new_data, null, 2) : 'null'}
                         </pre>
                       </div>
                     </div>
