@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import Layout from '../components/Layout';
 import Spinner from '../components/Spinner';
 import {
@@ -81,99 +81,198 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
   );
 }
 
-const ACTION_LABELS = {
-  cp1_entry:   'CP1 — Truck arrived at site',
-  cp2_entry:   'CP2 — Truck departed site',
-  cp3_entry:   'CP3 — Truck arrived at jetty',
-  edit_trip:   'Trip edited',
-  delete_trip: 'Trip deleted',
+const ACTION_META = {
+  cp1_entry:   { label: 'CP1 — Arrived at site',  cls: 'badge-blue' },
+  cp2_entry:   { label: 'CP2 — Departed site',    cls: 'badge-yellow' },
+  cp3_entry:   { label: 'CP3 — Arrived at jetty', cls: 'badge-green' },
+  edit_trip:   { label: 'Trip edited',             cls: 'badge-gray' },
+  delete_trip: { label: 'Trip deleted',            cls: 'badge-red' },
 };
+
+const FILTER_OPTIONS = [
+  { value: 'all',         label: 'All' },
+  { value: 'cp1_entry',  label: 'CP1' },
+  { value: 'cp2_entry',  label: 'CP2' },
+  { value: 'cp3_entry',  label: 'CP3' },
+  { value: 'edit_trip',  label: 'Edited' },
+  { value: 'delete_trip', label: 'Deleted' },
+];
+
+function auditFmt(ts) {
+  if (!ts) return '-';
+  return new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000)
+    .toISOString().replace('T', ' ').slice(0, 16) + ' WITA';
+}
+
+function auditTruck(log) {
+  const d = log.new_data ?? log.old_data;
+  return d?.no_lambung ?? '—';
+}
+
+function auditWeight(log) {
+  const d = log.new_data ?? log.old_data;
+  if (!d) return null;
+  const kgVal = log.action === 'cp3_entry' ? d.netto_jetty_kg
+              : log.action === 'cp2_entry' ? d.netto_site_kg
+              : log.action === 'cp1_entry' ? d.tare_site_kg
+              : null;
+  return kgVal != null ? (kgVal / 1000).toFixed(2) + ' t' : null;
+}
+
+const AUDIT_SKIP = new Set(['trip_id', 'created_at', 'updated_at']);
+
+function AuditDiff({ old_data, new_data }) {
+  if (!old_data || !new_data) return <p className="audit-empty">No diff available.</p>;
+  const changed = Object.keys(new_data).filter(
+    k => !AUDIT_SKIP.has(k) && JSON.stringify(new_data[k]) !== JSON.stringify(old_data[k])
+  );
+  if (changed.length === 0) return <p className="audit-empty">No fields changed.</p>;
+  return (
+    <table className="audit-diff-table">
+      <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        {changed.map(k => (
+          <tr key={k}>
+            <td className="adf-field">{k}</td>
+            <td className="adf-before">{String(old_data[k] ?? '—')}</td>
+            <td className="adf-after">{String(new_data[k] ?? '—')}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function AuditSummary({ data, action }) {
+  if (!data) return null;
+  const t = (kg) => kg != null ? (kg / 1000).toFixed(2) + ' t' : null;
+  const rows =
+    action === 'cp1_entry' ? [
+      ['Truck', data.no_lambung], ['Ticket', data.no_tiket], ['Driver', data.driver_name],
+      ['Gross', t(data.gross_site_kg)], ['Tare', t(data.tare_site_kg)],
+    ] : action === 'cp2_entry' ? [
+      ['Truck', data.no_lambung], ['Gross', t(data.gross_site_kg)],
+      ['Tare', t(data.tare_site_kg)], ['Netto', t(data.netto_site_kg)],
+    ] : action === 'cp3_entry' ? [
+      ['Truck', data.no_lambung], ['Netto Site', t(data.netto_site_kg)],
+      ['Netto Jetty', t(data.netto_jetty_kg)], ['Deviasi', t(data.deviasi_kg)],
+    ] : action === 'delete_trip' ? [
+      ['Truck', data.no_lambung], ['Ticket', data.no_tiket], ['Status', data.status],
+    ] : [];
+  return (
+    <div className="audit-summary">
+      {rows.filter(([, v]) => v != null).map(([label, value]) => (
+        <div key={label} className="audit-summary-item">
+          <span className="section-label" style={{ fontSize: 10 }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function ChangelogModal({ onClose }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [showFilter, setShowFilter] = useState(false);
 
   useEffect(() => {
     api.listAudit({ limit: 200 }).then(setLogs).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  function fmt(ts) {
-    if (!ts) return '-';
-    return new Date(new Date(ts).getTime() + 8 * 60 * 60 * 1000)
-      .toISOString().replace('T', ' ').slice(0, 16) + ' WITA';
-  }
+  const filtered = useMemo(
+    () => filter === 'all' ? logs : logs.filter(l => l.action === filter),
+    [logs, filter]
+  );
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-panel" style={{ maxWidth: 780 }}>
+    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setShowFilter(false); } }}>
+      <div className="modal-panel" style={{ maxWidth: 900 }}>
         <div className="modal-head">
           <div>
             <div className="section-label">Audit</div>
             <div style={{ fontWeight: 800, fontSize: 20 }}>Changelog</div>
           </div>
-          <IconButton label="Tutup" onClick={onClose}>
-            <I.close width="18" height="18" />
-          </IconButton>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <IconButton label="Filter" onClick={() => setShowFilter(v => !v)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+              </IconButton>
+              {showFilter && (
+                <div className="audit-filter-dropdown">
+                  {FILTER_OPTIONS.map(o => (
+                    <button
+                      key={o.value}
+                      className={`audit-filter-opt${filter === o.value ? ' active' : ''}`}
+                      onClick={() => { setFilter(o.value); setShowFilter(false); }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <IconButton label="Tutup" onClick={onClose}>
+              <I.close width="18" height="18" />
+            </IconButton>
+          </div>
         </div>
-        <div className="modal-body">
+        <div className="modal-body" style={{ padding: 0 }}>
           {loading ? (
             <div className="empty-state"><Spinner /></div>
-          ) : logs.length === 0 ? (
-            <div className="empty-state" style={{ padding: 24 }}>No audit entries yet.</div>
+          ) : filtered.length === 0 ? (
+            <div className="empty-state" style={{ padding: 24 }}>No audit entries.</div>
           ) : (
-            <div className="card flush">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="trip-row"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setExpanded(expanded === log.id ? null : log.id)}
-                >
-                  <div className="tr-top">
-                    <div>
-                      <div className="tr-lambung" style={{ fontSize: 14 }}>
-                        {ACTION_LABELS[log.action] ?? log.action}
-                        {(() => {
-                          try {
-                            const d = log.new_data ?? null;
-                            const truck = d?.no_lambung;
-                            const netto = log.action === 'cp3_entry' ? d?.netto_jetty_kg
-                                        : log.action === 'cp2_entry' ? d?.netto_site_kg
-                                        : log.action === 'cp1_entry' ? d?.tare_site_kg
-                                        : null;
-                            if (!truck) return null;
-                            return (
-                              <span style={{ fontWeight: 600, marginLeft: 8 }}>
-                                {truck}
-                                {netto != null && <span className="muted" style={{ fontWeight: 400, marginLeft: 6 }}>{(netto / 1000).toFixed(2)} t</span>}
-                              </span>
-                            );
-                          } catch { return null; }
-                        })()}
-                      </div>
-                      <div className="tr-sub">{log.user_email} &middot; {fmt(log.created_at)}</div>
-                    </div>
-                    <I.arrowLeft width="14" height="14" style={{ transform: expanded === log.id ? 'rotate(-90deg)' : 'rotate(180deg)', transition: '.2s', color: 'var(--muted)' }} />
-                  </div>
-                  {expanded === log.id && (
-                    <div style={{ padding: '8px 0', fontSize: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div>
-                        <div className="section-label" style={{ marginBottom: 4 }}>Before</div>
-                        <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
-                          {log.old_data ? JSON.stringify(log.old_data, null, 2) : 'null'}
-                        </pre>
-                      </div>
-                      <div>
-                        <div className="section-label" style={{ marginBottom: 4 }}>After</div>
-                        <pre style={{ background: 'var(--surface-2)', padding: 8, borderRadius: 6, overflow: 'auto', maxHeight: 200, fontSize: 11 }}>
-                          {log.new_data ? JSON.stringify(log.new_data, null, 2) : 'null'}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="audit-table-wrap">
+              <table className="audit-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 28 }}></th>
+                    <th>Action</th>
+                    <th>Truck</th>
+                    <th>Weight</th>
+                    <th>User</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((log) => {
+                    const meta = ACTION_META[log.action] ?? { label: log.action, cls: 'badge-gray' };
+                    const isOpen = expanded === log.id;
+                    return (
+                      <Fragment key={log.id}>
+                        <tr
+                          className={`audit-row${isOpen ? ' open' : ''}`}
+                          onClick={() => setExpanded(isOpen ? null : log.id)}
+                        >
+                          <td className="audit-chev">
+                            <I.arrowLeft width="12" height="12" style={{ transform: isOpen ? 'rotate(-90deg)' : 'rotate(180deg)', transition: '.18s', color: 'var(--muted)' }} />
+                          </td>
+                          <td><span className={`audit-badge ${meta.cls}`}>{meta.label}</span></td>
+                          <td className="audit-truck">{auditTruck(log)}</td>
+                          <td className="audit-weight">{auditWeight(log) ?? '—'}</td>
+                          <td className="audit-user">{log.user_email}</td>
+                          <td className="audit-time">{auditFmt(log.created_at)}</td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="audit-detail">
+                            <td colSpan={6}>
+                              {log.action === 'edit_trip'
+                                ? <AuditDiff old_data={log.old_data} new_data={log.new_data} />
+                                : <AuditSummary data={log.new_data ?? log.old_data} action={log.action} />
+                              }
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
