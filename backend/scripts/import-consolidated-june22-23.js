@@ -15,10 +15,19 @@ const pool = new pg.Pool({
 
 const DATES = ['2026-06-22', '2026-06-23'];
 
+function cellString(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (val.result !== undefined) return String(val.result);
+  if (val.richText) return val.richText.map(r => r.text).join('');
+  return String(val);
+}
+
 function coalQuality(raw) {
-  if (raw === '精煤') return 'premium';
-  if (raw === '原煤') return 'standard';
-  return String(raw || '').toLowerCase() || 'premium';
+  const s = cellString(raw);
+  if (s.includes('精煤')) return 'premium';
+  if (s.includes('原煤')) return 'standard';
+  return 'premium';
 }
 
 // WITA (UTC+8) time → UTC ISO string
@@ -55,7 +64,7 @@ function parseJune22(ws) {
     const tareSite    = Number(row.getCell(6).value) || 0;
     const nettoSiteRaw = row.getCell(7).value;
     const nettoSite   = Number(nettoSiteRaw?.result ?? nettoSiteRaw) || (grossSite - tareSite);
-    const cuaca       = String(row.getCell(8).value || '').trim();
+    const cuaca       = cellString(row.getCell(8).value).trim();
     const quality     = coalQuality(row.getCell(9).value);
     const grossJetty  = Number(row.getCell(10).value) || 0;
     const tareJetty   = Number(row.getCell(11).value) || 0;
@@ -110,7 +119,7 @@ function parseJune23(ws) {
     const tareJetty   = Math.round((Number(row.getCell(12).value) || 0) * 1000);
     const nettoJettyRaw = row.getCell(13).value;
     const nettoJetty  = Math.round((Number(nettoJettyRaw?.result ?? nettoJettyRaw) || 0) * 1000);
-    const cuaca       = String(row.getCell(14).value || '').trim();
+    const cuaca       = cellString(row.getCell(14).value).trim();
     const quality     = coalQuality(row.getCell(15).value);
 
     const dateStr = '2026-06-23';
