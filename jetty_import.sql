@@ -1,7 +1,10 @@
--- Jetty data import
+-- Jetty data import from new Excel files
 BEGIN;
 
-CREATE TEMP TABLE jetty_import (date date, no_lambung text, gross_jetty_kg int, tare_jetty_kg int, netto_jetty_kg int, cp3_timestamp timestamptz, rn int);
+CREATE TEMP TABLE jetty_import (
+  date date, no_lambung text, gross_jetty_kg int, tare_jetty_kg int,
+  netto_jetty_kg int, cp3_timestamp timestamptz, rn int
+);
 
 INSERT INTO jetty_import VALUES
   ('2026-05-22', 'PJM 104', 47220, 15690, 31530, '2026-05-22 06:39:00+00', 1),
@@ -1397,23 +1400,25 @@ INSERT INTO jetty_import VALUES
   ('2026-06-04', 'PJM 056', 49020, 15550, 33470, '2026-06-04 08:14:00+00', 1);
 
 WITH ranked_trips AS (
-  SELECT trip_id, date, no_lambung,
+  SELECT trip_id, date, no_lambung, gross_site_kg,
          ROW_NUMBER() OVER (PARTITION BY date, no_lambung ORDER BY cp2_timestamp, cp1_timestamp) AS rn
   FROM trips
   WHERE date BETWEEN '2026-05-22' AND '2026-06-06'
 ),
 matched AS (
-  SELECT t.trip_id, j.gross_jetty_kg, j.tare_jetty_kg, j.netto_jetty_kg, j.cp3_timestamp
+  SELECT t.trip_id, t.gross_site_kg,
+         j.gross_jetty_kg, j.tare_jetty_kg, j.netto_jetty_kg, j.cp3_timestamp
   FROM jetty_import j
   JOIN ranked_trips t ON t.date = j.date AND t.no_lambung = j.no_lambung AND t.rn = j.rn
 )
 UPDATE trips SET
-  gross_jetty_kg = m.gross_jetty_kg,
-  tare_jetty_kg  = m.tare_jetty_kg,
-  netto_jetty_kg = m.netto_jetty_kg,
-  deviasi_kg     = m.netto_jetty_kg - trips.netto_site_kg,
-  cp3_timestamp  = m.cp3_timestamp,
-  status         = 'completed'
+  gross_jetty_kg   = m.gross_jetty_kg,
+  tare_jetty_kg    = m.tare_jetty_kg,
+  netto_jetty_kg   = m.netto_jetty_kg,
+  compare_gross_kg = m.gross_jetty_kg - COALESCE(m.gross_site_kg, 0),
+  deviasi_kg       = m.netto_jetty_kg - COALESCE(trips.netto_site_kg, 0),
+  cp3_timestamp    = m.cp3_timestamp,
+  status           = 'completed'
 FROM matched m
 WHERE trips.trip_id = m.trip_id;
 
