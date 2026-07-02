@@ -634,6 +634,7 @@ export default function AdminPage() {
                     { label: t('colNettoSite'),  key: 'netto_site_kg' },
                     { label: t('colCP1'),        key: 'cp1_timestamp' },
                     { label: t('colGrossJetty'), key: 'gross_jetty_kg' },
+                    { label: t('colTareJetty'),  key: 'tare_jetty_kg' },
                     { label: t('colNettoJetty'), key: 'netto_jetty_kg' },
                     { label: t('colCompGross'),  key: 'compare_gross_kg' },
                     { label: t('colDeviasi'),    key: 'deviasi_kg' },
@@ -670,6 +671,7 @@ export default function AdminPage() {
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}><EditCell value={t.netto_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_site_kg', v)} /></td>
                     <td>{toWITA(t.cp1_timestamp)}</td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.gross_jetty_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} /></td>
+                    <td style={{ textAlign: 'right' }}><EditCell value={t.tare_jetty_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_jetty_kg', v)} /></td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{fw(t.netto_jetty_kg)}</td>
                     <td style={{ textAlign: 'right' }}>{fw(t.compare_gross_kg)}</td>
                     <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{fw(t.deviasi_kg)}</td>
