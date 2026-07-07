@@ -32,13 +32,27 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
   function commit(nextValue = val) {
     setEditing(false);
     if (String(nextValue) !== String(value ?? '')) {
-      onSave(type === 'number' ? parseInt(nextValue, 10) : nextValue);
+      if (type === 'number') {
+        onSave(parseInt(nextValue, 10));
+      } else if (type === 'datetime-local') {
+        onSave(nextValue);
+      } else {
+        onSave(nextValue);
+      }
     }
   }
 
   useEffect(() => {
-    if (!editing) setVal(value ?? '');
-  }, [value, editing]);
+    if (!editing) {
+      if (type === 'datetime-local' && value) {
+        const dt = new Date(value);
+        const localStr = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setVal(localStr);
+      } else {
+        setVal(value ?? '');
+      }
+    }
+  }, [value, editing, type]);
 
   if (options) {
     if (locked) return <span>{options.find((o) => o.value === value)?.label ?? value ?? '-'}</span>;
@@ -59,7 +73,12 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
     );
   }
 
-  if (locked) return <span>{value != null ? (type === 'number' ? fmtWeight(value, unit) : value) : '-'}</span>;
+  if (locked) {
+    if (type === 'datetime-local' && value) {
+      return <span>{toWITA(value)}</span>;
+    }
+    return <span>{value != null ? (type === 'number' ? fmtWeight(value, unit) : value) : '-'}</span>;
+  }
 
   return editing ? (
     <input
@@ -75,8 +94,17 @@ function EditCell({ value, type = 'text', options, onSave, locked = false }) {
       autoFocus
     />
   ) : (
-    <span className="editable-cell" onDoubleClick={() => { setVal(value ?? ''); setEditing(true); }} title="Edit">
-      {value != null ? (type === 'number' ? fmtWeight(value, unit) : value) : '-'}
+    <span className="editable-cell" onDoubleClick={() => {
+      if (type === 'datetime-local' && value) {
+        const dt = new Date(value);
+        const localStr = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setVal(localStr);
+      } else {
+        setVal(value ?? '');
+      }
+      setEditing(true);
+    }} title="Edit">
+      {value != null ? (type === 'datetime-local' ? toWITA(value) : type === 'number' ? fmtWeight(value, unit) : value) : '-'}
     </span>
   );
 }
@@ -474,7 +502,12 @@ export default function AdminPage() {
 
   async function handleFieldUpdate(tripId, field, value) {
     try {
-      const updated = await api.updateTrip(tripId, { [field]: value });
+      let updateValue = value;
+      if (field.endsWith('_timestamp') && value) {
+        const localDate = new Date(`${value}:00`);
+        updateValue = localDate.toISOString();
+      }
+      const updated = await api.updateTrip(tripId, { [field]: updateValue });
       setTrips((prev) => prev.map((t) => (t.trip_id === tripId ? updated : t)));
     } catch (err) {
       alert(`Update failed: ${err.message}`);
@@ -501,10 +534,11 @@ export default function AdminPage() {
   }
 
   const JETTY_OPTS = [{ value: 'hasnur', label: 'Hasnur' }, { value: 'talenta', label: 'Talenta' }];
-  const QUALITY_OPTS = [{ value: 'raw', label: 'Raw' }, { value: 'clean', label: 'Clean' }];
+  const QUALITY_OPTS = [{ value: 'raw', label: 'Raw' }, { value: 'clean', label: 'Clean' }, { value: 'premium', label: 'Premium' }, { value: 'standard', label: 'Standard' }];
   const STATUS_OPTS = [
     { value: 'pending', label: 'Pending' },
     { value: 'in_transit', label: 'In Transit' },
+    { value: 'arrived_jetty', label: 'Arrived at Jetty' },
     { value: 'completed', label: 'Completed' },
   ];
 
@@ -669,15 +703,15 @@ export default function AdminPage() {
                     <td style={{ textAlign: 'right' }}><EditCell value={t.tare_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_site_kg', v)} /></td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.gross_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_site_kg', v)} /></td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--st-done-fg)' }}><EditCell value={t.netto_site_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'netto_site_kg', v)} /></td>
-                    <td>{toWITA(t.cp1_timestamp)}</td>
+                    <td><EditCell value={t.cp1_timestamp} type="datetime-local" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'cp1_timestamp', v)} /></td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.gross_jetty_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'gross_jetty_kg', v)} /></td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.tare_jetty_kg} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'tare_jetty_kg', v)} /></td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--brand)' }}>{fw(t.netto_jetty_kg)}</td>
                     <td style={{ textAlign: 'right' }}>{fw(t.compare_gross_kg)}</td>
                     <td style={{ textAlign: 'right', color: t.deviasi_kg < 0 ? 'var(--danger)' : 'var(--text)' }}>{fw(t.deviasi_kg)}</td>
                     <td style={{ textAlign: 'right' }}><EditCell value={t.adjustment_kg ?? 0} type="number" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'adjustment_kg', v)} /></td>
-                    <td>{toWITA(t.cp2_timestamp)}</td>
-                    <td>{toWITA(t.cp3_timestamp)}</td>
+                    <td><EditCell value={t.cp2_timestamp} type="datetime-local" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'cp2_timestamp', v)} /></td>
+                    <td><EditCell value={t.cp3_timestamp} type="datetime-local" locked={locked} onSave={(v) => handleFieldUpdate(t.trip_id, 'cp3_timestamp', v)} /></td>
                     <td style={{ textAlign: 'center' }}>
                       <IconButton
                         label={locked ? 'Unlock trip' : 'Lock trip'}
