@@ -533,6 +533,28 @@ export default function AdminPage() {
     }
   }
 
+  const [showAddTrip, setShowAddTrip] = useState(false);
+  const [addForm, setAddForm] = useState({ no_lambung: '', jetty_destination: 'hasnur', coal_quality: 'raw', cuaca_mmi: '', tare_site_kg: '' });
+  const [addLoading, setAddLoading] = useState(false);
+
+  async function handleAddTrip(e) {
+    e.preventDefault();
+    setAddLoading(true);
+    try {
+      const trip = await api.createTrip({
+        ...addForm,
+        tare_site_kg: parseInt(addForm.tare_site_kg, 10),
+      });
+      setTrips((prev) => [trip, ...prev]);
+      setAddForm({ no_lambung: '', jetty_destination: 'hasnur', coal_quality: 'raw', cuaca_mmi: '', tare_site_kg: '' });
+      setShowAddTrip(false);
+    } catch (err) {
+      alert(`Add trip failed: ${err.message}`);
+    } finally {
+      setAddLoading(false);
+    }
+  }
+
   const JETTY_OPTS = [{ value: 'hasnur', label: 'Hasnur' }, { value: 'talenta', label: 'Talenta' }];
   const QUALITY_OPTS = [{ value: 'raw', label: 'Raw' }, { value: 'clean', label: 'Clean' }, { value: 'premium', label: 'Premium' }, { value: 'standard', label: 'Standard' }];
   const STATUS_OPTS = [
@@ -610,6 +632,47 @@ export default function AdminPage() {
             </select>
           </Field>
         </div>
+      </div>
+
+      <div className="card stack" style={{ gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="section-label">Add Trip</div>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setShowAddTrip((v) => !v)}>
+            {showAddTrip ? 'Cancel' : '+ Add Trip'}
+          </button>
+        </div>
+        {showAddTrip && (
+          <form onSubmit={handleAddTrip} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+            <Field label="Truck No.">
+              <input className="input" required value={addForm.no_lambung} onChange={(e) => setAddForm((f) => ({ ...f, no_lambung: e.target.value }))} placeholder="e.g. B1234XY" />
+            </Field>
+            <Field label="Jetty">
+              <select className="input" value={addForm.jetty_destination} onChange={(e) => setAddForm((f) => ({ ...f, jetty_destination: e.target.value }))}>
+                <option value="hasnur">Hasnur</option>
+                <option value="talenta">Talenta</option>
+              </select>
+            </Field>
+            <Field label="Coal Quality">
+              <select className="input" value={addForm.coal_quality} onChange={(e) => setAddForm((f) => ({ ...f, coal_quality: e.target.value }))}>
+                <option value="raw">Raw</option>
+                <option value="clean">Clean</option>
+                <option value="premium">Premium</option>
+                <option value="standard">Standard</option>
+              </select>
+            </Field>
+            <Field label="Cuaca MMI">
+              <input className="input" required value={addForm.cuaca_mmi} onChange={(e) => setAddForm((f) => ({ ...f, cuaca_mmi: e.target.value }))} placeholder="e.g. Cerah" />
+            </Field>
+            <Field label="Tare Site (kg)">
+              <input className="input" type="number" required min="1" value={addForm.tare_site_kg} onChange={(e) => setAddForm((f) => ({ ...f, tare_site_kg: e.target.value }))} placeholder="e.g. 18000" />
+            </Field>
+            <Field label=" ">
+              <button type="submit" className="btn btn-brand" disabled={addLoading} style={{ width: '100%' }}>
+                {addLoading ? <Spinner className="h-4 w-4" /> : 'Add Trip'}
+              </button>
+            </Field>
+          </form>
+        )}
       </div>
 
       <div className="totals-grid">
