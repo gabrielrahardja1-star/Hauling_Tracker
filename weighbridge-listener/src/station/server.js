@@ -33,7 +33,10 @@ function readBody(req) {
   });
 }
 
-const FIELD_KEYS = ['namaBarang', 'supplier', 'noPoDo', 'keterangan', 'operator', 'supir'];
+const FIELD_KEYS = [
+  'namaBarang', 'supplier', 'noPoDo', 'keterangan', 'operator', 'supir',
+  'jettyDestination', 'coalQuality', 'cuacaMmi',
+];
 function pickFields(body) {
   const f = {};
   for (const k of FIELD_KEYS) if (body[k] != null) f[k] = body[k];
@@ -117,12 +120,25 @@ export function createStation(config = {}) {
           return json(res, 409, { error: e.message });
         }
         persistQueue();
-        backendSync.push({
-          noPolisi: result.entry.noPolisi,
-          weightKg: cap.weightKg,
-          weighingNumber: result.weighingNumber,
-          at: cap.at,
-        }); // fire-and-forget — must not block/fail local weighing on network issues
+        // Fire-and-forget — must not block/fail local weighing on network issues.
+        if (result.weighingNumber === 1) {
+          backendSync.pushCP1({
+            noPolisi: result.entry.noPolisi,
+            jettyDestination: result.entry.jettyDestination,
+            coalQuality: result.entry.coalQuality,
+            cuacaMmi: result.entry.cuacaMmi,
+            weightKg: cap.weightKg,
+            at: cap.at,
+          }).then((trip) => {
+            if (trip) { queue.setBackendTripId(result.entry.noPolisi, trip.trip_id); persistQueue(); }
+          });
+        } else if (result.weighingNumber === 2) {
+          backendSync.pushCP2({
+            noPolisi: result.entry.noPolisi,
+            weightKg: cap.weightKg,
+            tripId: result.entry.backendTripId,
+          });
+        }
         return json(res, 200, {
           weighingNumber: result.weighingNumber,
           captured: cap,

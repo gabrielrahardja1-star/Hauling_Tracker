@@ -18,7 +18,12 @@ export const COMPANY = {
   fax: '-',
 };
 
-const FIELD_KEYS = ['namaBarang', 'supplier', 'noPoDo', 'keterangan', 'operator', 'supir'];
+const FIELD_KEYS = [
+  'namaBarang', 'supplier', 'noPoDo', 'keterangan', 'operator', 'supir',
+  // Required by the main Hauling_Tracker app's CP1 trip record — collected here
+  // so the station can push a complete trip directly, with no app-side step.
+  'jettyDestination', 'coalQuality', 'cuacaMmi',
+];
 
 function normalizePlate(p) {
   return String(p || '').trim().toUpperCase();
@@ -73,6 +78,14 @@ export class TruckQueue {
     const entry = this.lookup(noPolisi);
     if (!entry) return null;
     for (const k of FIELD_KEYS) if (fields[k] != null) entry[k] = fields[k];
+    return entry;
+  }
+
+  // Records the main app's trip_id once weighing #1 has been pushed as a real
+  // CP1 trip, so weighing #2 knows which trip to complete (PATCH .../cp2).
+  setBackendTripId(noPolisi, tripId) {
+    const entry = this.lookup(noPolisi);
+    if (entry) entry.backendTripId = tripId;
     return entry;
   }
 
