@@ -145,6 +145,7 @@
   <div style="display:flex; align-items:center; gap:8px;">
     <span class="sync-chip-wrap"><span id="dot" class="dot"></span><span id="statusText">Menghubungkan…</span></span>
     <span class="sync-chip-wrap"><span id="beDot" class="dot"></span><span id="beStatusText">Backend: —</span></span>
+    <button class="btn btn-secondary btn-sm" id="btnSyncFlush" style="display:none; width:auto;">⟳ Sync Sekarang (<span id="pendingCount">0</span>)</button>
   </div>
 </header>
 
@@ -494,8 +495,24 @@ async function poll() {
     else if (be.last && be.last.ok === true) { beDot.className = 'dot on'; beText.textContent = 'Backend: tersambung'; }
     else if (be.last && be.last.ok === false) { beDot.className = 'dot'; beText.textContent = 'Backend: gagal — ' + (be.last.error || 'unknown'); }
     else { beDot.className = 'dot'; beText.textContent = 'Backend: menunggu…'; }
+
+    var pending = (s.syncQueue && s.syncQueue.pending) || 0;
+    var btnFlush = $('btnSyncFlush');
+    btnFlush.style.display = pending > 0 ? 'inline-flex' : 'none';
+    $('pendingCount').textContent = String(pending);
   } catch (e) { $('statusText').textContent = 'Server error'; }
 }
+
+$('btnSyncFlush').onclick = async function () {
+  this.disabled = true;
+  try {
+    var r = await fetch('/api/sync/flush', { method: 'POST' });
+    var d = await r.json();
+    toast(d.flushed > 0 ? (d.flushed + ' truk berhasil disinkronkan.') : 'Belum ada yang berhasil — coba lagi nanti.');
+  } catch (e) { toast('Gagal sync — coba lagi.'); }
+  this.disabled = false;
+  poll();
+};
 
 $('noPolisi').addEventListener('blur', lookupPlate);
 $('noPolisi').addEventListener('keydown', function (e) {

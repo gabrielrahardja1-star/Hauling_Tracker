@@ -97,3 +97,33 @@ export class QueueStore {
     } catch { /* best-effort — an in-memory queue still works this session */ }
   }
 }
+
+// Persists CP1/CP2 pushes that failed after backendSync's own retries, so a
+// flaky (not fully dead) connection doesn't silently lose a truck's sync —
+// jobs survive a restart and get retried automatically (and on demand via
+// "Sync Sekarang") until they succeed. Same load/save shape as QueueStore.
+export class SyncQueueStore {
+  constructor(dataDir) {
+    this.dir = dataDir;
+    this.file = path.join(dataDir, 'sync-queue.json');
+  }
+
+  load() {
+    try {
+      if (!fs.existsSync(this.dir)) fs.mkdirSync(this.dir, { recursive: true });
+      if (fs.existsSync(this.file)) return JSON.parse(fs.readFileSync(this.file, 'utf8'));
+    } catch {
+      try { fs.renameSync(this.file, `${this.file}.bad-${Date.now()}`); } catch { /* ignore */ }
+    }
+    return [];
+  }
+
+  save(jobs) {
+    try {
+      if (!fs.existsSync(this.dir)) fs.mkdirSync(this.dir, { recursive: true });
+      const tmp = `${this.file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(jobs, null, 2));
+      fs.renameSync(tmp, this.file);
+    } catch { /* best-effort — an in-memory retry queue still works this session */ }
+  }
+}

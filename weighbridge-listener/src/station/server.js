@@ -10,7 +10,7 @@ import http from 'node:http';
 import { WeightMonitor } from '../weight-monitor.js';
 import { TruckQueue, formatTicket } from '../ticket.js';
 import { printTicket } from '../printer.js';
-import { TicketStore, QueueStore } from './store.js';
+import { TicketStore, QueueStore, SyncQueueStore } from './store.js';
 import { UI_HTML } from './ui-html.js';
 import { buildTripsWorkbook } from './export.js';
 import { createBackendSync } from './backendSync.js';
@@ -65,6 +65,55 @@ export function createStation(config = {}) {
   const queue = new TruckQueue(queueStore.load()); // restore any trucks mid-weighing across a restart
   const persistQueue = () => queueStore.save(queue.toJSON());
 
+  // Retry queue for CP1/CP2 pushes that failed even after backendSync's own
+  // retries — persisted so a flaky (not fully dead) connection can't silently
+  // lose a truck's sync. Retried automatically every 30s, and on demand via
+  // POST /api/sync/flush ("Sync Sekarang" in the UI).
+  const syncQueueStore = new SyncQueueStore(dataDir);
+  let syncQueue = syncQueueStore.load();
+  let flushing = false;
+
+  function enqueueSyncJob(type, noPolisi, payload) {
+    syncQueue.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type, noPolisi, payload,
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+      lastError: null,
+    });
+    syncQueueStore.save(syncQueue);
+  }
+
+  async function flushSyncQueue() {
+    if (flushing || syncQueue.length === 0) return { flushed: 0, remaining: syncQueue.length };
+    flushing = true;
+    let flushed = 0;
+    try {
+      for (const job of [...syncQueue]) {
+        job.attempts++;
+        let result = null;
+        if (job.type === 'cp1') {
+          result = await backendSync.pushCP1(job.payload);
+          if (result) { queue.setBackendTripId(job.noPolisi, result.trip_id); persistQueue(); }
+        } else if (job.type === 'cp2') {
+          result = await backendSync.pushCP2(job.payload);
+        }
+        if (result) {
+          syncQueue = syncQueue.filter((j) => j.id !== job.id);
+          flushed++;
+        } else {
+          job.lastError = backendSync.status().error;
+        }
+      }
+      syncQueueStore.save(syncQueue);
+    } finally {
+      flushing = false;
+    }
+    return { flushed, remaining: syncQueue.length };
+  }
+
+  setInterval(() => { flushSyncQueue().catch(() => {}); }, 30000);
+
   const monitor = new WeightMonitor({ path: serialPath, sim, stableMs: 1500 }).start();
   let status = { connected: false };
   monitor.on('status', (s) => { status = s; });
@@ -94,6 +143,7 @@ export function createStation(config = {}) {
           nextTiket: store.nextNumber(),
           dryRunPrint,
           backendSync: { enabled: backendSync.enabled, last: backendSync.status() },
+          syncQueue: { pending: syncQueue.length, jobs: syncQueue },
         });
       }
 
@@ -121,25 +171,30 @@ export function createStation(config = {}) {
         }
         persistQueue();
         // Fire-and-forget — must not block/fail local weighing on network issues.
+        // A failure here (after backendSync's own retries) drops into the
+        // persisted sync queue instead of being lost, and gets retried
+        // automatically every 30s or on demand via "Sync Sekarang".
         if (result.weighingNumber === 1) {
-          backendSync.pushCP1({
+          const cp1Payload = {
             noPolisi: result.entry.noPolisi,
             jettyDestination: result.entry.jettyDestination,
             coalQuality: result.entry.coalQuality,
             cuacaMmi: result.entry.cuacaMmi,
             weightKg: cap.weightKg,
             at: cap.at,
-          }).then((trip) => {
+          };
+          backendSync.pushCP1(cp1Payload).then((trip) => {
             if (trip) { queue.setBackendTripId(result.entry.noPolisi, trip.trip_id); persistQueue(); }
-            // Note: a failure here can't be reported to /station/errors — if the
-            // CP1 push itself failed, that same connection is presumably also
-            // down. The local "Backend: gagal" status chip is the fallback.
+            else enqueueSyncJob('cp1', result.entry.noPolisi, cp1Payload);
           });
         } else if (result.weighingNumber === 2) {
-          backendSync.pushCP2({
+          const cp2Payload = {
             noPolisi: result.entry.noPolisi,
             weightKg: cap.weightKg,
             tripId: result.entry.backendTripId,
+          };
+          backendSync.pushCP2(cp2Payload).then((trip) => {
+            if (!trip) enqueueSyncJob('cp2', result.entry.noPolisi, cp2Payload);
           });
         }
         return json(res, 200, {
@@ -171,6 +226,14 @@ export function createStation(config = {}) {
         queue.remove(noPolisi);
         persistQueue();
         return json(res, 200, { ok: true, noTiket: record.noTiket, print: result, preview, queue: queue.list() });
+      }
+
+      // Manually trigger an immediate retry of anything in the sync queue
+      // ("Sync Sekarang" button) — useful right when connectivity comes back,
+      // instead of waiting up to 30s for the automatic retry.
+      if (route === 'POST /api/sync/flush') {
+        const result = await flushSyncQueue();
+        return json(res, 200, { ...result, syncQueue: { pending: syncQueue.length, jobs: syncQueue } });
       }
 
       // Remove an in-progress truck without printing (mistake / duplicate entry).
@@ -209,5 +272,5 @@ export function createStation(config = {}) {
   });
 
   server.listen(port, '127.0.0.1');
-  return { server, url: `http://127.0.0.1:${port}`, monitor, store, queue, backendSync };
+  return { server, url: `http://127.0.0.1:${port}`, monitor, store, queue, backendSync, flushSyncQueue };
 }
