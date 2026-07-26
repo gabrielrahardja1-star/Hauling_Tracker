@@ -5,8 +5,6 @@ export const UI_HTML = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Timbangan — Weighbridge Station</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   /* Design tokens ported from Hauling_Tracker's DesignSystem (light theme),
      so this standalone station reads as part of the same product family. */
@@ -24,9 +22,14 @@ export const UI_HTML = `<!doctype html>
     --shadow: 0 1px 2px rgba(20,40,70,.05), 0 12px 28px -16px rgba(30,70,120,.2);
     --shadow-lg: 0 30px 64px -28px rgba(25,60,110,.34);
     --canvas-grid: rgba(0,0,0,.035);
-    --font-display: "Hanken Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-body: "Hanken Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-num: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    /* No web font — this runs on a PC with unreliable/no internet, and the
+       whole point of the station is to work when the network doesn't. Segoe
+       UI (Windows' native system font) is visually close to the main app's
+       Hanken Grotesk (both clean geometric sans) and loads with zero network
+       dependency, on every platform. */
+    --font-display: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-num: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   }
   * { box-sizing:border-box; }
   body {
