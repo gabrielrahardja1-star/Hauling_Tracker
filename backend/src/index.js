@@ -8,6 +8,8 @@ import analyticsRouter from './routes/analytics.js';
 import sessionsRouter from './routes/sessions.js';
 import auditRouter from './routes/audit.js';
 import stationRouter from './routes/station.js';
+import errorsRouter from './routes/errors.js';
+import { logError } from './lib/errorLog.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,11 +24,13 @@ app.use('/analytics', analyticsRouter);
 app.use('/sessions', sessionsRouter);
 app.use('/audit', auditRouter);
 app.use('/station', stationRouter);
+app.use('/errors', errorsRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.use((err, _req, res, _next) => {
+app.use((err, req, res, _next) => {
   console.error(err);
+  logError({ source: 'backend', message: err.message, context: { stack: err.stack, path: req.path, method: req.method } });
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 

@@ -3,6 +3,7 @@ import { query, queryOne } from '../lib/db.js';
 import { wrapAsyncRoutes } from '../lib/asyncRouter.js';
 import { requireStationKey } from '../middleware/stationAuth.js';
 import { logAudit } from '../lib/audit.js';
+import { logError } from '../lib/errorLog.js';
 
 const router = Router();
 wrapAsyncRoutes(router);
@@ -11,6 +12,17 @@ router.use(requireStationKey);
 function witaDate() {
   return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
+
+// POST /station/errors — weighbridge station reports a local problem (print
+// failure, scale disconnect, a backend push that ultimately failed) so it's
+// visible in Admin without needing physical/remote access to the station PC.
+router.post('/errors', async (req, res) => {
+  const { message, level, context } = req.body;
+  if (!message) return res.status(400).json({ error: 'message is required' });
+
+  await logError({ source: 'station', level: level === 'warn' ? 'warn' : 'error', message, context });
+  res.status(201).json({ ok: true });
+});
 
 // POST /station/readings — weighbridge station reports a completed weighing
 router.post('/readings', async (req, res) => {

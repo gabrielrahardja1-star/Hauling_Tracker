@@ -309,6 +309,124 @@ function ChangelogModal({ onClose }) {
   );
 }
 
+const ERROR_SOURCE_FILTERS = [
+  { value: 'all',      label: 'All' },
+  { value: 'station',  label: 'Station' },
+  { value: 'backend',  label: 'Backend' },
+  { value: 'frontend', label: 'Frontend' },
+];
+
+const ERROR_SOURCE_META = {
+  station:  { label: 'Station',  cls: 'badge-blue' },
+  backend:  { label: 'Backend',  cls: 'badge-red' },
+  frontend: { label: 'Frontend', cls: 'badge-yellow' },
+};
+
+function ErrorsModal({ onClose }) {
+  const [errs, setErrs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [showFilter, setShowFilter] = useState(false);
+
+  useEffect(() => {
+    api.listErrors({ limit: 200 }).then(setErrs).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(
+    () => filter === 'all' ? errs : errs.filter(e => e.source === filter),
+    [errs, filter]
+  );
+
+  return (
+    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setShowFilter(false); } }}>
+      <div className="modal-panel" style={{ maxWidth: 900 }}>
+        <div className="modal-head">
+          <div>
+            <div className="section-label">System</div>
+            <div style={{ fontWeight: 800, fontSize: 20 }}>Errors</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <IconButton label="Filter" onClick={() => setShowFilter(v => !v)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+              </IconButton>
+              {showFilter && (
+                <div className="audit-filter-dropdown">
+                  {ERROR_SOURCE_FILTERS.map(o => (
+                    <button
+                      key={o.value}
+                      className={`audit-filter-opt${filter === o.value ? ' active' : ''}`}
+                      onClick={() => { setFilter(o.value); setShowFilter(false); }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <IconButton label="Tutup" onClick={onClose}>
+              <I.close width="18" height="18" />
+            </IconButton>
+          </div>
+        </div>
+        <div className="modal-body" style={{ padding: 0 }}>
+          {loading ? (
+            <div className="empty-state"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <div className="empty-state" style={{ padding: 24 }}>No errors logged.</div>
+          ) : (
+            <div className="audit-table-wrap">
+              <table className="audit-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 28 }}></th>
+                    <th>Source</th>
+                    <th>Message</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((e) => {
+                    const meta = ERROR_SOURCE_META[e.source] ?? { label: e.source, cls: 'badge-gray' };
+                    const isOpen = expanded === e.error_id;
+                    return (
+                      <Fragment key={e.error_id}>
+                        <tr
+                          className={`audit-row${isOpen ? ' open' : ''}`}
+                          onClick={() => setExpanded(isOpen ? null : e.error_id)}
+                        >
+                          <td className="audit-chev">
+                            <I.arrowLeft width="12" height="12" style={{ transform: isOpen ? 'rotate(-90deg)' : 'rotate(180deg)', transition: '.18s', color: 'var(--muted)' }} />
+                          </td>
+                          <td><span className={`audit-badge ${meta.cls}`}>{meta.label}</span></td>
+                          <td style={{ maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.message}</td>
+                          <td className="audit-time">{auditFmt(e.created_at)}</td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="audit-detail">
+                            <td colSpan={4}>
+                              <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {e.context ? JSON.stringify(e.context, null, 2) : '(no context)'}
+                              </pre>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UserModal({ onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -431,6 +549,7 @@ export default function AdminPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [bargeDayTotal, setBargeDayTotal] = useState(0);
   const [cumulativeBargeTotal, setCumulativeBargeTotal] = useState(0);
   const [cumulativeNettoJetty, setCumulativeNettoJetty] = useState(0);
@@ -575,6 +694,7 @@ export default function AdminPage() {
     <Layout title="Admin Dashboard" kicker="MergeCoal" wide>
       {showUsers && <UserModal onClose={() => setShowUsers(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
+      {showErrors && <ErrorsModal onClose={() => setShowErrors(false)} />}
 
       <div className="admin-actions">
         <button onClick={() => setShowUsers(true)} className="btn btn-ghost">
@@ -584,6 +704,10 @@ export default function AdminPage() {
         <button onClick={() => setShowChangelog(true)} className="btn btn-ghost">
           <I.refresh width="18" height="18" />
           Changelog
+        </button>
+        <button onClick={() => setShowErrors(true)} className="btn btn-ghost">
+          <I.warning width="18" height="18" />
+          Errors
         </button>
         <a href="/sessions" className="btn btn-ghost">
           <I.shield width="18" height="18" />

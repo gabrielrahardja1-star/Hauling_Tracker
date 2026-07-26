@@ -112,5 +112,24 @@ export function createBackendSync({ backendUrl, stationKey }) {
     return withRetry(() => call('PATCH', `/station/trips/${id}/cp2`, { gross_site_kg: weightKg }), `complete trip ${noPolisi}`);
   }
 
-  return { enabled, pushCP1, pushCP2, status: () => last };
+  // Best-effort, single-attempt (no retry, short timeout) — for reporting a
+  // problem (e.g. a print failure) to Admin. Must never itself hang or throw;
+  // if the backend is unreachable, the error just stays local (console only).
+  async function reportError(message, context) {
+    if (!enabled) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      await fetch(`${base}/station/errors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-station-key': stationKey },
+        body: JSON.stringify({ message, context }),
+        signal: controller.signal,
+      });
+    } catch { /* best-effort only */ } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return { enabled, pushCP1, pushCP2, reportError, status: () => last };
 }

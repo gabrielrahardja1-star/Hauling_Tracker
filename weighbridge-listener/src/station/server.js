@@ -131,6 +131,9 @@ export function createStation(config = {}) {
             at: cap.at,
           }).then((trip) => {
             if (trip) { queue.setBackendTripId(result.entry.noPolisi, trip.trip_id); persistQueue(); }
+            // Note: a failure here can't be reported to /station/errors — if the
+            // CP1 push itself failed, that same connection is presumably also
+            // down. The local "Backend: gagal" status chip is the fallback.
           });
         } else if (result.weighingNumber === 2) {
           backendSync.pushCP2({
@@ -200,6 +203,7 @@ export function createStation(config = {}) {
 
       res.writeHead(404); res.end('not found');
     } catch (e) {
+      backendSync.reportError(e.message, { route: `${req.method} ${req.url}`, stack: e.stack });
       json(res, 500, { error: e.message });
     }
   });

@@ -170,4 +170,11 @@ export const api = {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/audit${q ? `?${q}` : ''}`);
   },
+
+  // Error log
+  reportError: (message, context) => request('POST', '/errors', { message, context }).catch(() => {}),
+  listErrors: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/errors${q ? `?${q}` : ''}`);
+  },
 };
