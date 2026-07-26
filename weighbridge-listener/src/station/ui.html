@@ -210,12 +210,16 @@
       <option value="Berawan">Berawan</option>
       <option value="Hujan">Hujan</option>
     </select>
-    <label>Nama Barang</label><input id="namaBarang" value="BATU BARA" />
+    <label>Nama Barang</label><input id="namaBarang" value="BATU BARA" readonly />
     <div class="row">
-      <div><label>Supplier</label><input id="supplier" placeholder="MM TALENTA" /></div>
+      <div><label>Supplier</label><input id="supplier" placeholder="Pilih tujuan jetty dulu" /></div>
       <div><label>No. PO / DO</label><input id="noPoDo" placeholder="-" /></div>
     </div>
-    <label>Keterangan</label><input id="keterangan" placeholder="SOLAR FULL" />
+    <label>Keterangan</label>
+    <select id="keterangan">
+      <option value="SOLAR FULL">SOLAR FULL</option>
+      <option value="SOLAR SETENGAH">SOLAR SETENGAH</option>
+    </select>
     <div class="row">
       <div><label>Operator</label><input id="operator" placeholder="Admin" /></div>
       <div><label>Supir</label><input id="supir" placeholder="nama supir" /></div>
@@ -267,7 +271,8 @@ var $ = function (id) { return document.getElementById(id); };
 var fmt = function (n) { return n == null ? '—' : n.toLocaleString('en-US'); };
 var FIELD_KEYS = ['namaBarang', 'supplier', 'noPoDo', 'keterangan', 'operator', 'supir', 'jettyDestination', 'coalQuality', 'cuacaMmi'];
 var REQUIRED_KEYS = ['jettyDestination', 'coalQuality', 'cuacaMmi'];
-var DEFAULTS = { namaBarang: 'BATU BARA' };
+var DEFAULTS = { namaBarang: 'BATU BARA', keterangan: 'SOLAR FULL' };
+var SUPPLIER_BY_JETTY = { talenta: 'MM TALENTA', hasnur: 'HJI HBM MMI' };
 
 // Local form state: which plate is loaded, and how many weighings it has so far.
 var form = { plate: '', nextWeighing: 1, hasTotals: false };
@@ -300,7 +305,7 @@ function resetForm() {
   form = { plate: '', nextWeighing: 1, hasTotals: false };
   $('noPolisi').value = '';
   $('namaBarang').value = DEFAULTS.namaBarang;
-  $('supplier').value = ''; $('noPoDo').value = ''; $('keterangan').value = '';
+  $('supplier').value = ''; $('noPoDo').value = ''; $('keterangan').value = DEFAULTS.keterangan;
   $('operator').value = ''; $('supir').value = '';
   $('jettyDestination').value = ''; $('coalQuality').value = ''; $('cuacaMmi').value = '';
   $('banner').style.display = 'none';
@@ -323,7 +328,7 @@ function loadEntryIntoForm(entry) {
   $('noPolisi').value = entry.noPolisi;
   for (var i = 0; i < FIELD_KEYS.length; i++) {
     var k = FIELD_KEYS[i];
-    $(k).value = entry[k] || (k === 'namaBarang' ? DEFAULTS.namaBarang : '');
+    $(k).value = entry[k] || DEFAULTS[k] || '';
   }
   setBox('w1', entry.weighings[0] || null);
   setBox('w2', entry.weighings[1] || null);
@@ -516,6 +521,11 @@ $('btnSyncFlush').onclick = async function () {
   this.disabled = false;
   poll();
 };
+
+$('jettyDestination').addEventListener('change', function () {
+  var s = SUPPLIER_BY_JETTY[this.value];
+  if (s) $('supplier').value = s;
+});
 
 $('noPolisi').addEventListener('blur', lookupPlate);
 $('noPolisi').addEventListener('keydown', function (e) {
