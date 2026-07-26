@@ -7,22 +7,41 @@
 
 const TIMEOUT_MS = 5000;
 const RETRY_DELAY_MS = 3000;
+// Cap how many pushes can be in flight at once. On a badly flaky connection,
+// AbortController doesn't always fully release the underlying socket/DNS
+// lookup the instant we abort — without a cap, repeated hung attempts could
+// pile up and start starving Node's I/O (which previously froze the local
+// station UI). This is a hard ceiling independent of that cleanup timing.
+const MAX_CONCURRENT = 3;
 
 export function createBackendSync({ backendUrl, stationKey }) {
   const enabled = !!(backendUrl && stationKey);
   const base = enabled ? backendUrl.replace(/\/$/, '') : null;
   let last = { ok: null, at: null, error: null };
+  let inFlight = 0;
 
   async function call(method, path, body) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    // A hard, JS-level timeout independent of AbortController — guarantees
+    // this promise settles within TIMEOUT_MS even if the OS-level socket
+    // never actually unwinds on a connection that's silently dropping
+    // packets rather than refusing/erroring. The real fetch may keep running
+    // in the background after we give up on it here; that's an acceptable
+    // trade so a flaky link can never stall the local weighing UI.
+    const hardTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('timed out waiting for backend')), TIMEOUT_MS + 500);
+    });
     try {
-      const res = await fetch(`${base}${path}`, {
-        method,
-        headers: { 'Content-Type': 'application/json', 'x-station-key': stationKey },
-        body: body != null ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
+      const res = await Promise.race([
+        fetch(`${base}${path}`, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'x-station-key': stationKey },
+          body: body != null ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        }),
+        hardTimeout,
+      ]);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Backend returned ${res.status}`);
       return data;
@@ -32,19 +51,29 @@ export function createBackendSync({ backendUrl, stationKey }) {
   }
 
   async function withRetry(fn, label) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const result = await fn();
-        last = { ok: true, at: new Date().toISOString(), error: null };
-        return result;
-      } catch (err) {
-        if (attempt === 2) {
-          last = { ok: false, at: new Date().toISOString(), error: err.message };
-          console.error(`[backendSync] ${label} failed: ${err.message}`);
-          return null;
+    if (inFlight >= MAX_CONCURRENT) {
+      last = { ok: false, at: new Date().toISOString(), error: `${label} skipped — too many pending backend pushes (connection likely down)` };
+      console.error(`[backendSync] ${last.error}`);
+      return null;
+    }
+    inFlight++;
+    try {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const result = await fn();
+          last = { ok: true, at: new Date().toISOString(), error: null };
+          return result;
+        } catch (err) {
+          if (attempt === 2) {
+            last = { ok: false, at: new Date().toISOString(), error: err.message };
+            console.error(`[backendSync] ${label} failed: ${err.message}`);
+            return null;
+          }
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         }
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       }
+    } finally {
+      inFlight--;
     }
   }
 
