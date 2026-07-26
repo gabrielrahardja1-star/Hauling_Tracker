@@ -66,11 +66,15 @@ test('two weighings for one plate derive gross/tare/netto (matches sample ticket
   assert.deepEqual(q.totalsFor(entry), { gross: 47180, tare: 15640, netto: 31540 });
 });
 
-test('order does not matter (loaded weighed first)', () => {
+test('weighing #1 is always TARE and #2 is always GROSS, by position not magnitude', () => {
+  // Matches the main Hauling_Tracker app's CP1 (tare, arrival) / CP2 (gross,
+  // departure) semantics exactly, since the station pushes each weighing
+  // straight into a real CP1/CP2 trip as it happens — it can't wait to see
+  // both numbers before deciding which is which.
   const q = new TruckQueue();
-  q.weigh('PJM 085', 47180);
-  const { entry } = q.weigh('PJM 085', 15640);
-  assert.deepEqual(q.totalsFor(entry), { gross: 47180, tare: 15640, netto: 31540 });
+  q.weigh('PJM 085', 47180); // weighing #1 — always tare, even though this number is larger
+  const { entry } = q.weigh('PJM 085', 15640); // weighing #2 — always gross
+  assert.deepEqual(q.totalsFor(entry), { gross: 15640, tare: 47180, netto: -31540 });
 });
 
 test('a plate cannot be weighed a third time', () => {
@@ -83,10 +87,10 @@ test('MULTIPLE TRUCKS INTERLEAVED: A weighs in, B weighs in and out, A weighs ou
   const q = new TruckQueue();
   // Truck A arrives empty, weighed once, drives off to load.
   q.weigh('PJM 085', 15640, new Date('2026-07-24T08:00:00'));
-  // Before A returns, Truck B arrives (already loaded elsewhere), weighed once...
-  q.weigh('BC 1234', 30000, new Date('2026-07-24T08:05:00'));
-  // ...and B leaves empty (its second weighing) before A is back at all.
-  q.weigh('BC 1234', 12000, new Date('2026-07-24T08:10:00'));
+  // Before A returns, Truck B also arrives empty, weighed once...
+  q.weigh('BC 1234', 12000, new Date('2026-07-24T08:05:00'));
+  // ...and B leaves loaded (its second weighing) before A is back at all.
+  q.weigh('BC 1234', 30000, new Date('2026-07-24T08:10:00'));
   // Now A finally returns loaded.
   q.weigh('PJM 085', 47180, new Date('2026-07-24T08:40:00'));
 

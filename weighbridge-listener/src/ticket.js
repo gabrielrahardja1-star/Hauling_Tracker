@@ -5,10 +5,13 @@
 // comes back for its second weighing. So weighings are tracked PER TRUCK (keyed
 // by license plate / NO. POLISI), not as a single global "current session".
 //
-// Workflow per truck: weighed twice (empty and loaded, either order, minutes to
-// hours apart, with other trucks interleaved in between). The larger reading is
-// GROSS, the smaller is TARE, NETTO = GROSS - TARE (the coal). ONE ticket is
-// printed after both weighings, keyed by plate.
+// Workflow per truck: weighed twice, minutes to hours apart, with other trucks
+// interleaved in between. Weighing #1 is always TARE (empty, on arrival);
+// weighing #2 is always GROSS (loaded, before departure) — this matches the
+// main Hauling_Tracker app's CP1 (tare on arrival) / CP2 (gross on departure)
+// semantics exactly, since the station pushes each weighing straight into a
+// real CP1/CP2 trip. NETTO = GROSS - TARE (the coal). ONE ticket is printed
+// after both weighings, keyed by plate.
 
 // Company header from the printed ticket (PT Merge Mining Industri).
 export const COMPANY = {
@@ -29,13 +32,12 @@ function normalizePlate(p) {
   return String(p || '').trim().toUpperCase();
 }
 
-// GROSS = larger reading, TARE = smaller, NETTO = difference.
+// Weighing #1 = TARE, weighing #2 = GROSS — by position, not magnitude (see
+// note above). NETTO = GROSS - TARE.
 function totalsFromWeighings(weighings) {
   if (weighings.length !== 2) return null;
-  const [a, b] = weighings;
-  const gross = Math.max(a.weightKg, b.weightKg);
-  const tare = Math.min(a.weightKg, b.weightKg);
-  return { gross, tare, netto: gross - tare };
+  const [tare, gross] = weighings;
+  return { gross: gross.weightKg, tare: tare.weightKg, netto: gross.weightKg - tare.weightKg };
 }
 
 // Holds every truck currently mid-weighing (1 weighing recorded, awaiting the
