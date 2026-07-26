@@ -233,9 +233,9 @@ export function SyncChip({ online = true, compact = false }) {
   );
 }
 
-const STATUS_CLS = { pending: 'st-pending', in_transit: 'st-transit', completed: 'st-done' };
-const STATUS_KEY = { pending: 'statusPending', in_transit: 'statusInTransit', completed: 'statusCompleted' };
-const STATUS_KEY_LONG = { pending: 'statusPendingLong', in_transit: 'statusInTransitLong', completed: 'statusCompletedLong' };
+const STATUS_CLS = { pending: 'st-pending', in_transit: 'st-transit', arrived_jetty: 'st-transit', completed: 'st-done' };
+const STATUS_KEY = { pending: 'statusPending', in_transit: 'statusInTransit', arrived_jetty: 'statusArrivedJetty', completed: 'statusCompleted' };
+const STATUS_KEY_LONG = { pending: 'statusPendingLong', in_transit: 'statusInTransitLong', arrived_jetty: 'statusArrivedJettyLong', completed: 'statusCompletedLong' };
 
 export function StatusPill({ status, short = false }) {
   const { t } = useLang();
@@ -351,6 +351,10 @@ export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
             <>
               {t('tripNettoSite')} <b>{fw(trip.netto_site_kg)}</b> {unit}
             </>
+          ) : trip.status === 'arrived_jetty' ? (
+            <>
+              {t('tripNettoSite')} <b>{fw(trip.netto_site_kg)}</b> {unit} · {t('tripArrivedAt') || 'Tiba'} {toWITA(trip.cp3_timestamp)}
+            </>
           ) : (
             <>
               {t('tripNetto')} <b>{fw(trip.netto_jetty_kg)}</b> {unit},{' '}
@@ -382,7 +386,7 @@ export function TripRow({ trip, onTap, cta, time = 'cp1' }) {
   );
 }
 
-export function TripListCard({ title, sub, trips, loading, getTap, cta, onRefresh, right, empty = 'Belum ada trip hari ini' }) {
+export function TripListCard({ title, sub, trips, loading, getTap, cta, getCta, onRefresh, right, empty = 'Belum ada trip hari ini' }) {
   return (
     <div className="card flush">
       <div className="list-head">
@@ -406,7 +410,7 @@ export function TripListCard({ title, sub, trips, loading, getTap, cta, onRefres
       ) : trips.length === 0 ? (
         <div className="empty-state">{empty}</div>
       ) : (
-        trips.map((trip) => <TripRow key={trip.trip_id} trip={trip} onTap={getTap ? getTap(trip) : null} cta={cta} />)
+        trips.map((trip) => <TripRow key={trip.trip_id} trip={trip} onTap={getTap ? getTap(trip) : null} cta={getCta ? getCta(trip) : cta} />)
       )}
     </div>
   );

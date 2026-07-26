@@ -77,9 +77,11 @@ export const translations = {
     // Status labels
     statusPending: 'Pending',
     statusInTransit: 'In Transit',
+    statusArrivedJetty: 'Tiba Jetty',
     statusCompleted: 'Completed',
     statusPendingLong: 'Di Site',
     statusInTransitLong: 'Perjalanan',
+    statusArrivedJettyLong: 'Tiba di Jetty',
     statusCompletedLong: 'Selesai',
 
     // Trip row meta
@@ -87,6 +89,7 @@ export const translations = {
     tripNettoSite: 'Netto site',
     tripNetto: 'Netto',
     tripDev: 'dev',
+    tripArrivedAt: 'Tiba',
 
     // Coal quality
     coalClean: 'Standard',
@@ -111,6 +114,18 @@ export const translations = {
     cp3TareLabel: 'Berat Kosong di Jetty',
     cp3TareHint: 'Tara jetty - kg',
     cp3CompareTare: 'Compare Tare (Jetty vs Site)',
+
+    // CP3 Hasnur two-step flow
+    cp3ArriveSection: 'Catat Kedatangan - ',
+    cp3ArriveInfo: 'Truk telah tiba di Hasnur. Catat waktu kedatangan sekarang, lalu input berat setelah data timbangan tersedia.',
+    cp3ArriveSubmit: 'Catat Tiba Sekarang',
+    cp3ArriveBannerTitle: 'Kedatangan dicatat',
+    cp3ArriveNext: 'Truk berikutnya',
+    cp3WeightSection: 'Input Berat - ',
+    cp3WeightInfo: 'Truk sudah tercatat tiba. Sekarang input data timbangan.',
+    cp3WeightSubmit: 'Simpan Berat',
+    cp3ArrivedAt: 'Tiba di jetty',
+    cp3InputWeightCta: 'Input Berat',
 
     // Weather
     weatherCerah: 'Cerah',
@@ -140,6 +155,8 @@ export const translations = {
     cp1TareError: 'Berat tara harus lebih dari 0 kg.',
     cp1Submit: 'Catat Jam Masuk',
     cp1BannerTitle: 'Jam Masuk tercatat',
+    cp1PullScale: 'Ambil dari Timbangan',
+    cp1ScaleNone: 'Belum ada data timbangan untuk truk ini',
 
     // CP2 Form
     cp2BannerTitle: 'Jam Keluar tercatat',
@@ -157,6 +174,9 @@ export const translations = {
     cp2PickPrompt: 'Pilih truk yang akan keluar',
     cp2WaitingTitle: 'Menunggu Keluar',
     cp2WaitingSub: 'truk di stockpile',
+    cp2PullScale: 'Ambil dari Timbangan',
+    cp2ScaleNone: 'Belum ada data timbangan untuk truk ini',
+    sourceScale: 'Timbangan',
 
     // Today list
     todaySub: 'truk - diperbarui tiap 30 dtk',
@@ -392,9 +412,11 @@ export const translations = {
     // Status labels
     statusPending: '待处理',
     statusInTransit: '运输中',
+    statusArrivedJetty: '抵达码头',
     statusCompleted: '已完成',
     statusPendingLong: '在现场',
     statusInTransitLong: '运输中',
+    statusArrivedJettyLong: '已抵达码头',
     statusCompletedLong: '已完成',
 
     // Trip row meta
@@ -402,6 +424,7 @@ export const translations = {
     tripNettoSite: '现场净重',
     tripNetto: '净重',
     tripDev: '偏差',
+    tripArrivedAt: '抵达',
 
     // Coal quality
     coalClean: 'Standard',
@@ -426,6 +449,18 @@ export const translations = {
     cp3TareLabel: '码头皮重',
     cp3TareHint: '码头皮重 - kg',
     cp3CompareTare: '皮重对比（码头 vs 现场）',
+
+    // CP3 Hasnur two-step flow
+    cp3ArriveSection: '记录到达 - ',
+    cp3ArriveInfo: '车辆已抵达Hasnur码头。立即记录到达时间，待磅单数据确认后再输入重量。',
+    cp3ArriveSubmit: '立即记录到达',
+    cp3ArriveBannerTitle: '到达时间已记录',
+    cp3ArriveNext: '下一辆车',
+    cp3WeightSection: '输入重量 - ',
+    cp3WeightInfo: '车辆已记录到达。现在请输入过磅数据。',
+    cp3WeightSubmit: '保存重量',
+    cp3ArrivedAt: '抵达码头',
+    cp3InputWeightCta: '输入重量',
 
     // Weather
     weatherCerah: '晴天',
@@ -458,6 +493,8 @@ export const translations = {
     cp1Success: '车辆已记录进场',
     cp1BannerTitle: '进场时间已记录',
     cp1NoLambung: '车辆编号',
+    cp1PullScale: '从地磅获取',
+    cp1ScaleNone: '该车辆暂无地磅数据',
 
     // CP2 Form
     cp2Title: '记录出场',
@@ -478,6 +515,9 @@ export const translations = {
     cp2PickPrompt: '选择要出场的车辆',
     cp2WaitingTitle: '等待出场',
     cp2WaitingSub: '辆车在现场',
+    cp2PullScale: '从地磅获取',
+    cp2ScaleNone: '该车辆暂无地磅数据',
+    sourceScale: '地磅',
 
     // Today list
     todaySub: '辆 - 每30秒刷新',

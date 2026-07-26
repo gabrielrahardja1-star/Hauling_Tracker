@@ -13,9 +13,25 @@ function witaDate() {
   return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
 }
 
+// GET /trips/scale-reading?no_lambung=&type=tare|gross — latest staged reading from the weighbridge station
+router.get('/scale-reading', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
+  const { no_lambung, type } = req.query;
+  if (!no_lambung || !['tare', 'gross'].includes(type)) {
+    return res.status(400).json({ error: 'no_lambung and type (tare|gross) are required' });
+  }
+
+  const reading = await queryOne(
+    `select * from scale_readings_pending where no_lambung = $1 and reading_type = $2`,
+    [no_lambung.trim().toUpperCase(), type]
+  );
+
+  if (!reading) return res.status(404).json({ error: 'No scale reading available for this truck' });
+  res.json(reading);
+});
+
 // POST /trips — CP1: stockpile operator records truck arrival
 router.post('/', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
-  const { no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg } = req.body;
+  const { no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, tare_source } = req.body;
 
   if (!no_lambung || !jetty_destination || !coal_quality || !cuaca_mmi || !tare_site_kg) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -26,6 +42,7 @@ router.post('/', requireRole('stockpile_operator', 'admin', 'supervisor'), async
 
   const today = witaDate();
   const lambung = no_lambung.trim().toUpperCase();
+  const source = tare_source === 'scale' ? 'scale' : 'manual';
 
   // Find or create an active session for today (auto-grouped by date)
   let session = await queryOne(
@@ -43,12 +60,16 @@ router.post('/', requireRole('stockpile_operator', 'admin', 'supervisor'), async
     `with next_ticket as (
        select coalesce(max(no_tiket), 0) + 1 as no_tiket from trips where date = $1
      )
-     insert into trips (date, no_tiket, no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, cp1_timestamp, status, session_id)
-     select $1, no_tiket, $2, $3, $4, $5, $6, now(), 'pending', $7
+     insert into trips (date, no_tiket, no_lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, tare_source, cp1_timestamp, status, session_id)
+     select $1, no_tiket, $2, $3, $4, $5, $6, $7, now(), 'pending', $8
      from next_ticket
      returning *`,
-    [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, session.session_id]
+    [today, lambung, jetty_destination, coal_quality, cuaca_mmi, tare_site_kg, source, session.session_id]
   );
+
+  if (source === 'scale') {
+    await query(`delete from scale_readings_pending where no_lambung = $1 and reading_type = 'tare'`, [lambung]);
+  }
 
   await logAudit(req, 'cp1_entry', trip.trip_id, null, trip);
   res.status(201).json(trip);
@@ -57,7 +78,7 @@ router.post('/', requireRole('stockpile_operator', 'admin', 'supervisor'), async
 // PATCH /trips/:id/cp2 — stockpile operator records truck departure
 router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
-  const { gross_site_kg } = req.body;
+  const { gross_site_kg, gross_source } = req.body;
 
   if (!gross_site_kg || gross_site_kg <= 0) {
     return res.status(400).json({ error: 'gross_site_kg is required and must be positive' });
@@ -73,20 +94,50 @@ router.patch('/:id/cp2', requireRole('stockpile_operator', 'admin', 'supervisor'
   if (trip.status !== 'pending') return res.status(409).json({ error: 'Trip is not in pending status' });
 
   const netto_site_kg = gross_site_kg - trip.tare_site_kg;
+  const source = gross_source === 'scale' ? 'scale' : 'manual';
 
   const [updated] = await query(
     `update trips
-     set gross_site_kg = $1, netto_site_kg = $2, cp2_timestamp = now(), status = 'in_transit'
-     where trip_id = $3
+     set gross_site_kg = $1, netto_site_kg = $2, gross_source = $3, cp2_timestamp = now(), status = 'in_transit'
+     where trip_id = $4
      returning *`,
-    [gross_site_kg, netto_site_kg, id]
+    [gross_site_kg, netto_site_kg, source, id]
   );
+
+  if (source === 'scale') {
+    await query(`delete from scale_readings_pending where no_lambung = $1 and reading_type = 'gross'`, [trip.no_lambung]);
+  }
 
   await logAudit(req, 'cp2_entry', id, trip, updated);
   res.json(updated);
 });
 
-// PATCH /trips/:id/cp3 — jetty operator records truck arrival at jetty
+// PATCH /trips/:id/cp3-arrive — Hasnur only: jetty operator records truck arrival time (no weights yet)
+router.patch('/:id/cp3-arrive', requireRole('jetty_operator', 'admin', 'supervisor'), async (req, res) => {
+  const { id } = req.params;
+
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+  if (trip.jetty_destination !== 'hasnur') return res.status(400).json({ error: 'cp3-arrive is only for Hasnur trips' });
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
+  if (trip.session_id) {
+    const sess = await queryOne('select jetty_locked from sessions where session_id = $1', [trip.session_id]);
+    if (sess?.jetty_locked) return res.status(409).json({ error: 'Session jetty data is locked' });
+  }
+  if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
+
+  const [updated] = await query(
+    `update trips set cp3_timestamp = now(), status = 'arrived_jetty' where trip_id = $1 returning *`,
+    [id]
+  );
+
+  await logAudit(req, 'cp3_arrive', id, trip, updated);
+  res.json(updated);
+});
+
+// PATCH /trips/:id/cp3 — jetty operator records weights at jetty.
+// For Talenta: called when trip is in_transit (single step, sets cp3_timestamp now).
+// For Hasnur: called after cp3-arrive when trip is arrived_jetty (preserves existing cp3_timestamp).
 router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), async (req, res) => {
   const { id } = req.params;
   const { gross_jetty_kg, tare_jetty_kg, stockpile_code } = req.body;
@@ -105,7 +156,9 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), a
     const sess = await queryOne('select jetty_locked from sessions where session_id = $1', [trip.session_id]);
     if (sess?.jetty_locked) return res.status(409).json({ error: 'Session jetty data is locked' });
   }
-  if (trip.status !== 'in_transit') return res.status(409).json({ error: 'Trip is not in_transit status' });
+  if (trip.status !== 'in_transit' && trip.status !== 'arrived_jetty') {
+    return res.status(409).json({ error: 'Trip must be in_transit or arrived_jetty to record weights' });
+  }
 
   const tare_kg          = tare_jetty_kg != null ? Number(tare_jetty_kg) : null;
   const netto_jetty_kg   = tare_kg != null ? gross_jetty_kg - tare_kg : gross_jetty_kg;
@@ -120,7 +173,7 @@ router.patch('/:id/cp3', requireRole('jetty_operator', 'admin', 'supervisor'), a
          compare_gross_kg = $4,
          deviasi_kg       = $5,
          stockpile_code   = $6,
-         cp3_timestamp    = now(),
+         cp3_timestamp    = coalesce(cp3_timestamp, now()),
          status           = 'completed'
      where trip_id = $7
      returning *`,
@@ -182,11 +235,11 @@ router.get('/search', requireRole('stockpile_operator', 'jetty_operator', 'admin
   res.json(trip);
 });
 
-// GET /trips/incoming?jetty= — jetty operator: all in_transit trips (any date)
+// GET /trips/incoming?jetty= — jetty operator: all in_transit and arrived_jetty trips (any date)
 router.get('/incoming', requireRole('jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { jetty } = req.query;
 
-  const conditions = [`status = 'in_transit'`];
+  const conditions = [`status IN ('in_transit', 'arrived_jetty')`];
   const values = [];
 
   if (jetty) {
@@ -205,20 +258,20 @@ router.get('/incoming', requireRole('jetty_operator', 'admin', 'site_jetty_opera
 // GET /trips/export?from=&to=&jetty= — Excel export (all roles)
 router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin', 'site_jetty_operator', 'supervisor'), async (req, res) => {
   const { from, to, jetty } = req.query;
-  if (!from || !to || !jetty) return res.status(400).json({ error: 'from, to and jetty are required' });
+  if (!from || !to) return res.status(400).json({ error: 'from and to are required' });
 
   const trips = await query(
-    `select * from trips
-     where date >= $1 and date <= $2 and jetty_destination = $3 and status = 'completed'
-     order by date asc, no_tiket asc`,
-    [from, to, jetty]
+    jetty
+      ? `select * from trips where date >= $1 and date <= $2 and jetty_destination = $3 and status = 'completed' order by date asc, no_tiket asc`
+      : `select * from trips where date >= $1 and date <= $2 and status = 'completed' order by date asc, jetty_destination asc, no_tiket asc`,
+    jetty ? [from, to, jetty] : [from, to]
   );
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Trips');
 
   const TOTAL_COLS = 14;
-  const jettyLabel = jetty === 'hasnur' ? 'HBM' : 'Talenta';
+  const jettyLabel = jetty === 'hasnur' ? 'HBM' : jetty === 'talenta' ? 'Talenta' : 'HBM/Talenta';
 
   const toHHMM = (ts) => {
     if (!ts) return '';
@@ -237,6 +290,7 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
     ? `${fy}年${fm}月${fd}日运煤明细`
     : `${fy}年${fm}月${fd}日 - ${ty}年${tm}月${td}日运煤明细`;
   const dateRange = from === to ? from : `${from} ~ ${to}`;
+  const jettyDisplay = jetty === 'hasnur' ? 'Hasnur (HBM)' : jetty === 'talenta' ? 'Talenta' : 'Hasnur + Talenta';
 
   // Row 1 — title
   sheet.addRow([titleDate]);
@@ -245,8 +299,8 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   sheet.getRow(1).getCell(1).alignment = centerAlign;
   sheet.getRow(1).font = { bold: true, size: 16 };
 
-  // Row 2 — date range
-  sheet.addRow([dateRange]);
+  // Row 2 — date range + jetty
+  sheet.addRow([`${dateRange}  |  Jetty: ${jettyDisplay}`]);
   sheet.mergeCells(2, 1, 2, TOTAL_COLS);
   sheet.getRow(2).height = 20;
   sheet.getRow(2).getCell(1).alignment = centerAlign;
@@ -349,7 +403,8 @@ router.get('/export', requireRole('stockpile_operator', 'jetty_operator', 'admin
   colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=trips_${from}_${to}_${jetty}.xlsx`);
+  const fileJetty = jetty || 'all';
+  res.setHeader('Content-Disposition', `attachment; filename=trips_${from}_${to}_${fileJetty}.xlsx`);
   await workbook.xlsx.write(res);
   res.end();
 });

@@ -7,6 +7,7 @@ import bargeLoadingsRouter from './routes/bargeLoadings.js';
 import analyticsRouter from './routes/analytics.js';
 import sessionsRouter from './routes/sessions.js';
 import auditRouter from './routes/audit.js';
+import stationRouter from './routes/station.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +21,7 @@ app.use('/barge-loadings', bargeLoadingsRouter);
 app.use('/analytics', analyticsRouter);
 app.use('/sessions', sessionsRouter);
 app.use('/audit', auditRouter);
+app.use('/station', stationRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

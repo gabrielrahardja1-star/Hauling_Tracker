@@ -217,10 +217,34 @@ function CP1Form({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  const [tareSource, setTareSource] = useState('manual');
+  const [pullingScale, setPullingScale] = useState(false);
+  const [scaleError, setScaleError] = useState('');
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     setError('');
+    if (field === 'tare_site_kg') setTareSource('manual');
+  }
+
+  async function pullFromScale() {
+    const lambung = form.no_lambung.trim().toUpperCase();
+    if (!lambung) return;
+    setPullingScale(true);
+    setScaleError('');
+    try {
+      const reading = await api.getScaleReading(lambung, 'tare');
+      if (!reading) {
+        setScaleError(t('cp1ScaleNone') || 'Belum ada data timbangan untuk truk ini');
+        return;
+      }
+      setForm((f) => ({ ...f, tare_site_kg: String(Math.round(reading.weight_kg)) }));
+      setTareSource('scale');
+    } catch (err) {
+      setScaleError(err.message);
+    } finally {
+      setPullingScale(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -239,9 +263,11 @@ function CP1Form({ onSuccess }) {
         ...form,
         no_lambung: form.no_lambung.trim().toUpperCase(),
         tare_site_kg: tare,
+        tare_source: tareSource,
       });
       setSuccess(trip);
       setForm(CP1_INITIAL);
+      setTareSource('manual');
       onSuccess();
     } catch (err) {
       setError(err.message);
@@ -308,15 +334,37 @@ function CP1Form({ onSuccess }) {
         </Field>
 
         <Field label={t('cp1TareLabel')} hint={t('cp1TareHint')}>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="input num"
-            placeholder="0"
-            value={form.tare_site_kg}
-            onChange={(e) => set('tare_site_kg', e.target.value.replace(/\D/g, ''))}
-            required
-          />
+          <div className="row" style={{ gap: 10 }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              className="input num grow"
+              placeholder="0"
+              value={form.tare_site_kg}
+              onChange={(e) => set('tare_site_kg', e.target.value.replace(/\D/g, ''))}
+              required
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ width: 'auto', whiteSpace: 'nowrap' }}
+              disabled={pullingScale || !form.no_lambung.trim()}
+              onClick={pullFromScale}
+            >
+              {pullingScale ? <Spinner className="h-4 w-4" /> : (t('cp1PullScale') || 'Ambil dari Timbangan')}
+            </button>
+          </div>
+          {tareSource === 'scale' && (
+            <span style={{
+              display: 'inline-block', marginTop: 6, fontSize: 10, fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--accent)',
+              background: 'var(--accent-subtle, #f0fdf4)', border: '1px solid var(--accent)',
+              borderRadius: 6, padding: '2px 6px',
+            }}>
+              {t('sourceScale') || 'Timbangan'}
+            </span>
+          )}
+          {scaleError && <div className="muted" style={{ fontSize: 11, marginTop: 6, color: 'var(--danger)' }}>{scaleError}</div>}
         </Field>
 
         {error && <div className="alert">{error}</div>}
@@ -345,6 +393,9 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
   const [searchError, setSearchError] = useState('');
   const [trip, setTrip] = useState(null);
   const [gross, setGross] = useState('');
+  const [grossSource, setGrossSource] = useState('manual');
+  const [pullingScale, setPullingScale] = useState(false);
+  const [scaleError, setScaleError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -353,10 +404,31 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
     setTrip(t);
     setSearchInput(t.no_lambung);
     setGross('');
+    setGrossSource('manual');
+    setScaleError('');
     setSubmitError('');
     setSuccess(null);
     setSearchError('');
     scrollContentTop();
+  }
+
+  async function pullFromScale() {
+    if (!trip) return;
+    setPullingScale(true);
+    setScaleError('');
+    try {
+      const reading = await api.getScaleReading(trip.no_lambung, 'gross');
+      if (!reading) {
+        setScaleError(t('cp2ScaleNone') || 'Belum ada data timbangan untuk truk ini');
+        return;
+      }
+      setGross(String(Math.round(reading.weight_kg)));
+      setGrossSource('scale');
+    } catch (err) {
+      setScaleError(err.message);
+    } finally {
+      setPullingScale(false);
+    }
   }
 
   async function handleSearch(e) {
@@ -388,7 +460,7 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
 
     setSubmitting(true);
     try {
-      const updated = await api.submitCP2(trip.trip_id, { gross_site_kg: grossKg });
+      const updated = await api.submitCP2(trip.trip_id, { gross_site_kg: grossKg, gross_source: grossSource });
       setSuccess(updated);
       setTrip(null);
       onSuccess();
@@ -404,6 +476,8 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
     setSearchError('');
     setTrip(null);
     setGross('');
+    setGrossSource('manual');
+    setScaleError('');
     setSubmitError('');
     setSuccess(null);
   }
@@ -474,18 +548,41 @@ function CP2Form({ onSuccess, pendingTrips, tripsLoading }) {
 
           <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
             <Field label={t('cp2GrossLabel')} hint={t('cp2GrossHint')}>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="input num"
-                placeholder="0"
-                value={gross}
-                onChange={(e) => {
-                  setGross(e.target.value.replace(/\D/g, ''));
-                  setSubmitError('');
-                }}
-                required
-              />
+              <div className="row" style={{ gap: 10 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="input num grow"
+                  placeholder="0"
+                  value={gross}
+                  onChange={(e) => {
+                    setGross(e.target.value.replace(/\D/g, ''));
+                    setGrossSource('manual');
+                    setSubmitError('');
+                  }}
+                  required
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ width: 'auto', whiteSpace: 'nowrap' }}
+                  disabled={pullingScale}
+                  onClick={pullFromScale}
+                >
+                  {pullingScale ? <Spinner className="h-4 w-4" /> : (t('cp2PullScale') || 'Ambil dari Timbangan')}
+                </button>
+              </div>
+              {grossSource === 'scale' && (
+                <span style={{
+                  display: 'inline-block', marginTop: 6, fontSize: 10, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--accent)',
+                  background: 'var(--accent-subtle, #f0fdf4)', border: '1px solid var(--accent)',
+                  borderRadius: 6, padding: '2px 6px',
+                }}>
+                  {t('sourceScale') || 'Timbangan'}
+                </span>
+              )}
+              {scaleError && <div className="muted" style={{ fontSize: 11, marginTop: 6, color: 'var(--danger)' }}>{scaleError}</div>}
             </Field>
 
             {netPreview !== null && (

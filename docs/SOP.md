@@ -20,6 +20,7 @@
 10. [Admin — User Management](#10-admin--user-management)
 11. [Analytics — Viewing Reports and Exporting Data](#11-analytics--viewing-reports-and-exporting-data)
 12. [Error Handling & Escalation](#12-error-handling--escalation)
+13. [System Maintenance Break](#13-system-maintenance-break)
 
 ---
 
@@ -566,6 +567,162 @@ If the wrong truck ID, jetty, or tare weight was submitted at CP1 and you notice
 2. Contact the supervisor immediately.
 3. Supervisor will edit the existing trip to correct the fields via the Admin page.
 4. Once corrected, the site operator can proceed to record CP2 normally.
+
+---
+
+---
+
+## 13. System Maintenance Break
+
+**Who**: System admin only.  
+**When**: Before deploying updates, running database migrations, or restarting any server component.  
+**Estimated downtime**: 10–15 minutes (users see a maintenance page, not an error).
+
+> For the full technical runbook including setup instructions and rollback commands, see [MAINTENANCE.md](../MAINTENANCE.md).
+
+---
+
+### Pre-maintenance checklist
+
+Before starting, confirm all of the following:
+
+- [ ] Maintenance is scheduled at an **off-peak time** — between shifts or overnight, when no trucks are actively in transit.
+- [ ] All trucks for the day have status `Completed` — no trips showing `Pending` or `In Transit`.
+- [ ] The admin has **locked today's session** (Site Lock and Jetty Lock both set to `Locked`) to prevent new entries during the window.
+- [ ] Operators and drivers have been notified at least **30 minutes in advance** via WhatsApp or radio.
+
+To verify no in-transit trips remain, run on the VPS:
+
+```bash
+sudo -u postgres psql -d hauling_tracker -c "SELECT count(*) FROM trips WHERE status IN ('pending', 'in_transit');"
+```
+
+The result must be `0` before proceeding.
+
+---
+
+### Step 1 — Enable maintenance mode
+
+Run on the VPS. This shows a "Under Maintenance" page to all users instead of the live app:
+
+```bash
+# Frontend: show maintenance page immediately
+touch /var/www/hauling/maintenance.flag
+nginx -t && systemctl reload nginx
+
+# Backend: return 503 on all API requests
+sed -i '/^MAINTENANCE_MODE/d' /var/www/hauling/backend/.env
+echo "MAINTENANCE_MODE=true" >> /var/www/hauling/backend/.env
+pm2 restart hauling-api
+```
+
+**Verify**: Open the app URL in a browser. You should see the maintenance page, not the login screen.
+
+---
+
+### Step 2 — Back up the database
+
+Always take a backup before any maintenance, regardless of how small the change is:
+
+```bash
+mkdir -p /var/backups/hauling
+sudo -u postgres pg_dump hauling_tracker > /var/backups/hauling/hauling_$(date +%Y%m%d_%H%M).sql
+echo "Backup saved: $(ls -lh /var/backups/hauling/ | tail -1)"
+```
+
+---
+
+### Step 3 — Perform the maintenance work
+
+```bash
+# Pull latest code
+cd /var/www/hauling && git pull origin main
+
+# Run any new database migrations
+cd backend && npm run migrate
+
+# Fix permissions after migrations (safe to run every time)
+sudo -u postgres psql -d hauling_tracker -c \
+  "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hauling_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hauling_user;"
+
+# Rebuild frontend (if frontend files changed)
+cd /var/www/hauling
+docker compose build frontend && docker compose up -d frontend
+
+# Restart backend (if backend files changed)
+pm2 restart hauling-api
+```
+
+---
+
+### Step 4 — Verify before going live
+
+Before disabling maintenance mode, confirm everything is healthy:
+
+```bash
+# Backend health check — must return {"ok":true}
+curl http://localhost:3002/health
+
+# Check PM2 status — hauling-api must show "online"
+pm2 status
+
+# Check Docker — frontend must show "Up"
+docker compose ps
+
+# Check for errors in logs
+pm2 logs hauling-api --lines 20
+```
+
+If any check fails, **do not disable maintenance mode**. Diagnose and fix the issue first. If you cannot recover, see the Rollback section in [MAINTENANCE.md](../MAINTENANCE.md).
+
+---
+
+### Step 5 — Disable maintenance mode
+
+Once all checks pass:
+
+```bash
+# Remove maintenance mode from backend
+sed -i '/^MAINTENANCE_MODE/d' /var/www/hauling/backend/.env
+pm2 restart hauling-api
+
+# Remove maintenance flag (frontend goes live immediately)
+rm /var/www/hauling/maintenance.flag
+nginx -t && systemctl reload nginx
+```
+
+**Verify**: Refresh the app URL. You should see the login page, not the maintenance page.
+
+---
+
+### Step 6 — Post-maintenance checks
+
+- [ ] App loads and login works
+- [ ] Admin can view sessions and the trip list with correct data
+- [ ] `pm2 logs hauling-api` shows no crash or error lines
+- [ ] Notify operators (WhatsApp/radio) that the system is back online
+- [ ] Unlock today's session (Site Lock and Jetty Lock) if operators need to resume work
+
+---
+
+### Rollback procedure
+
+If the app is broken after disabling maintenance mode:
+
+1. **Immediately re-enable maintenance mode** (repeat Step 1).
+2. Restore the database from the backup taken in Step 2:
+   ```bash
+   sudo -u postgres psql hauling_tracker < /var/backups/hauling/hauling_YYYYMMDD_HHMM.sql
+   ```
+3. Revert the code to the last working commit:
+   ```bash
+   cd /var/www/hauling
+   git log --oneline -5     # identify the last good commit
+   git checkout <hash>
+   ```
+4. Rebuild and restart (repeat Step 3), then verify (Step 4).
+5. Disable maintenance mode again (Step 5).
 
 ---
 

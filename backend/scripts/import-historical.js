@@ -47,7 +47,7 @@ function coalQuality(raw) {
   if (raw === '精煤') return 'clean';
   if (raw === '原煤') return 'raw';
   return 'clean';
-}http://mmiminimarketbackend.online:8080/shop
+}
 
 async function parseFile(filePath) {
   const wb = new ExcelJS.Workbook();

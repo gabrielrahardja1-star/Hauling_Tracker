@@ -1,0 +1,27 @@
+{
+  "name": "weighbridge-listener",
+  "version": "1.0.0",
+  "description": "Read-only serial capture tool for the GSC SGW-3015PS weighbridge indicator",
+  "main": "index.js",
+  "scripts": {
+    "capture": "node src/capture.js",
+    "sim": "node src/capture.js --sim",
+    "test": "node test/parser.test.js && node test/parse.test.js && node test/export.test.js",
+    "station": "node src/station/main.js",
+    "station:sim": "node src/station/main.js --sim",
+    "gen:ui": "node build/gen-ui.mjs",
+    "bundle": "node build/gen-ui.mjs && npx esbuild src/station/main.js --bundle --platform=node --format=cjs --target=node20 --outfile=dist/station.cjs",
+    "build:exe": "node build/make-exe.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

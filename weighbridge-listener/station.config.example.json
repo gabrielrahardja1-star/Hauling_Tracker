@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy to station.config.json next to Timbangan.exe and edit. All optional. backendUrl/stationKey enable syncing weighings to the main Hauling_Tracker app (CP1/CP2 'pull from scale') — leave both unset to keep the station fully local/offline. stationKey must match the backend's WEIGHBRIDGE_STATION_KEY env var exactly.",
+  "serialPath": "COM3",
+  "printerName": "EPSON LX-310",
+  "startNumber": 17217,
+  "port": 4310,
+  "sim": false,
+  "backendUrl": "http://192.168.1.50:3001",
+  "stationKey": "change-this-to-match-the-backend"
+}

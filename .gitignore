@@ -4,3 +4,5 @@ dist/
 .DS_Store
 *.local
 Hauling_Tracker/
+weighbridge-listener/station.config.json
+weighbridge-listener/station.config.pc2.json

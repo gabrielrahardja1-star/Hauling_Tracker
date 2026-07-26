@@ -240,6 +240,7 @@ export default function JettyOperatorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(null);
+  const [arriveSuccess, setArriveSuccess] = useState(null);
 
   const fetchTrips = useCallback(async () => {
     setTripsLoading(true);
@@ -284,8 +285,10 @@ export default function JettyOperatorPage() {
     setSearchInput(t.no_lambung);
     setGrossJetty('');
     setTareJetty('');
+    setStockpileCode('');
     setSubmitError('');
     setSuccess(null);
+    setArriveSuccess(null);
     scrollContentTop();
   }
 
@@ -295,6 +298,7 @@ export default function JettyOperatorPage() {
     setSearchError('');
     setTrip(null);
     setSuccess(null);
+    setArriveSuccess(null);
     setGrossJetty('');
     setTareJetty('');
     setSearching(true);
@@ -338,12 +342,29 @@ export default function JettyOperatorPage() {
   function reset() {
     setTrip(null);
     setSuccess(null);
+    setArriveSuccess(null);
     setSearchInput('');
     setSearchError('');
     setGrossJetty('');
     setTareJetty('');
     setStockpileCode('');
     setSubmitError('');
+  }
+
+  async function handleArriveSubmit(e) {
+    e.preventDefault();
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      const updated = await api.submitCP3Arrive(trip.trip_id);
+      setArriveSuccess(updated);
+      setTrip(updated);
+      fetchTrips();
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const g = parseInt(grossJetty, 10) || 0;
@@ -357,7 +378,7 @@ export default function JettyOperatorPage() {
   } : null;
 
   const displayTrips = jettyFilter ? allTrips.filter((t) => t.jetty_destination === jettyFilter) : allTrips;
-  const incomingTrips = displayTrips.filter((t) => t.status === 'in_transit');
+  const incomingTrips = displayTrips.filter((t) => t.status === 'in_transit' || t.status === 'arrived_jetty');
   const inTransitCount = incomingTrips.length;
   const titles = { cp3: t('tabTimbang'), trips: t('todayTitle'), barge: t('tabBarge'), export: t('tabEkspor'), analytics: t('tabAnalytics') };
   const tabs = [
@@ -405,6 +426,18 @@ export default function JettyOperatorPage() {
 
   const cp3FormPane = (
     <div className="stack" style={{ gap: 14 }}>
+      {arriveSuccess && !success && (
+        <Banner
+          title={t('cp3ArriveBannerTitle')}
+          action={
+            <button type="button" onClick={reset} className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>
+              {t('cp3ArriveNext')}
+            </button>
+          }
+        >
+          {arriveSuccess.no_lambung} — {t('cp3ArrivedAt')} {toWITA(arriveSuccess.cp3_timestamp)}
+        </Banner>
+      )}
       {success && (
         <Banner
           title={t('cp3BannerTitle')}
@@ -468,7 +501,143 @@ export default function JettyOperatorPage() {
         </div>
       )}
 
-      {trip && !success && trip.status === 'in_transit' && (
+      {trip && !success && trip.status === 'in_transit' && trip.jetty_destination === 'hasnur' && (
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="between">
+            <div className="section-label">{t('cp3ArriveSection')}{JETTY[trip.jetty_destination]}</div>
+            <StatusPill status="in_transit" />
+          </div>
+          <div className="card">
+            <div className="between" style={{ marginBottom: 14 }}>
+              <div>
+                <div className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+                  #{trip.no_tiket} - {QUALITY[trip.coal_quality]} - {elapsed(trip.cp2_timestamp)}
+                </div>
+                <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 22 }}>{trip.no_lambung}</div>
+              </div>
+              <DestChip dest={trip.jetty_destination} />
+            </div>
+            <InfoGrid
+              items={[
+                { label: t('cp3NettoSite'), value: fw(trip.netto_site_kg) },
+                { label: t('cp3GrossSite'), value: fw(trip.gross_site_kg) },
+                { label: t('cp3JamMasuk'), value: toWITA(trip.cp1_timestamp) },
+                { label: t('cp3JamKeluar'), value: toWITA(trip.cp2_timestamp) },
+              ]}
+            />
+          </div>
+          <div className="card" style={{ padding: '12px 14px', borderColor: 'var(--accent)', background: 'var(--accent-subtle, #f0fdf4)' }}>
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('cp3ArriveInfo')}</p>
+          </div>
+          {submitError && <div className="alert">{submitError}</div>}
+          <form onSubmit={handleArriveSubmit} className="row" style={{ gap: 10 }}>
+            <button type="button" onClick={reset} className="btn btn-ghost grow" style={{ width: 'auto' }}>
+              {t('cp3Cancel')}
+            </button>
+            <button type="submit" className="btn btn-accent grow" style={{ width: 'auto' }} disabled={submitting}>
+              {submitting ? <Spinner className="h-5 w-5" /> : <><I.scale width="20" height="20" /> {t('cp3ArriveSubmit')}</>}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {trip && !success && trip.status === 'arrived_jetty' && (
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="between">
+            <div className="section-label">{t('cp3WeightSection')}{JETTY[trip.jetty_destination]}</div>
+            <StatusPill status="arrived_jetty" />
+          </div>
+          <div className="card">
+            <div className="between" style={{ marginBottom: 14 }}>
+              <div>
+                <div className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+                  #{trip.no_tiket} - {QUALITY[trip.coal_quality]}
+                </div>
+                <div style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 22 }}>{trip.no_lambung}</div>
+              </div>
+              <DestChip dest={trip.jetty_destination} />
+            </div>
+            <InfoGrid
+              items={[
+                { label: t('cp3NettoSite'), value: fw(trip.netto_site_kg) },
+                { label: t('cp3GrossSite'), value: fw(trip.gross_site_kg) },
+                { label: t('cp3ArrivedAt'), value: toWITA(trip.cp3_timestamp) },
+                { label: t('cp3JamKeluar'), value: toWITA(trip.cp2_timestamp) },
+              ]}
+            />
+          </div>
+          <div className="card" style={{ padding: '12px 14px', borderColor: 'var(--accent)', background: 'var(--accent-subtle, #f0fdf4)' }}>
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('cp3WeightInfo')}</p>
+          </div>
+          <form onSubmit={handleSubmit} className="stack" style={{ gap: 16 }}>
+            <Field label={`${t('cp3GrossLabel')} ${JETTY[trip.jetty_destination]}`} hint={t('cp3GrossHint')}>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="input num"
+                placeholder="0"
+                value={grossJetty}
+                onChange={(e) => { setGrossJetty(e.target.value.replace(/\D/g, '')); setSubmitError(''); }}
+                required
+              />
+            </Field>
+            <Field label={t('cp3StockpileCode')}>
+              <select className="input" value={stockpileCode} onChange={(e) => setStockpileCode(e.target.value)}>
+                <option value="">— Pilih —</option>
+                <option value="Jetty R">Jetty R</option>
+                <option value="Jetty H/J">Jetty H/J</option>
+              </select>
+            </Field>
+            <Field label={t('cp3TareLabel')} hint={t('cp3TareHint')}>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="input num"
+                placeholder="0"
+                value={tareJetty}
+                onChange={(e) => { setTareJetty(e.target.value.replace(/\D/g, '')); setSubmitError(''); }}
+              />
+            </Field>
+            {preview && (
+              <div className="card" style={{ padding: 14 }}>
+                <div className="between" style={{ marginBottom: 8 }}>
+                  <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3NettoJetty')}</span>
+                  <Weight value={preview.netto_jetty} accent />
+                </div>
+                <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                  <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3DeviasVsSite')}</span>
+                  <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.deviasi < 0 ? 'var(--danger)' : 'var(--st-transit-fg)' }}>
+                    {preview.deviasi > 0 ? '+' : ''}{fw(preview.deviasi)} {unit}
+                  </span>
+                </div>
+                <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
+                  <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareGross')}</span>
+                  <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18 }}>{fw(preview.compare_gross)} {unit}</span>
+                </div>
+                {preview.compare_tare != null && (
+                  <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--border)', marginTop: 8 }}>
+                    <span className="muted" style={{ fontSize: 13, fontWeight: 800 }}>{t('cp3CompareTare')}</span>
+                    <span style={{ fontFamily: 'var(--font-num)', fontWeight: 800, fontSize: 18, color: preview.compare_tare !== 0 ? 'var(--danger)' : 'inherit' }}>
+                      {preview.compare_tare > 0 ? '+' : ''}{fw(preview.compare_tare)} {unit}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            {submitError && <div className="alert">{submitError}</div>}
+            <div className="row" style={{ gap: 10 }}>
+              <button type="button" onClick={reset} className="btn btn-ghost grow" style={{ width: 'auto' }}>
+                {t('cp3Cancel')}
+              </button>
+              <button type="submit" className="btn btn-accent grow" style={{ width: 'auto' }} disabled={submitting || !(g > 0)}>
+                {submitting ? <Spinner className="h-5 w-5" /> : <><I.scale width="20" height="20" /> {t('cp3WeightSubmit')}</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {trip && !success && trip.status === 'in_transit' && trip.jetty_destination !== 'hasnur' && (
         <div className="stack" style={{ gap: 16 }}>
           <div className="between">
             <div className="section-label">{t('cp3InTransitSection')}{JETTY[trip.jetty_destination]}</div>
@@ -515,17 +684,11 @@ export default function JettyOperatorPage() {
               <Field label={t('cp3StockpileCode')}>
                 <select className="input" value={stockpileCode} onChange={(e) => setStockpileCode(e.target.value)}>
                   <option value="">— Pilih —</option>
-                  {trip.jetty_destination === 'talenta' && <>
-                    <option value="Line 1">Line 1</option>
-                    <option value="Line 2">Line 2</option>
-                    <option value="Line 3">Line 3</option>
-                    <option value="Line 4">Line 4</option>
-                    <option value="Stockroom 2">Stockroom 2</option>
-                  </>}
-                  {trip.jetty_destination === 'hasnur' && <>
-                    <option value="Jetty R">Jetty R</option>
-                    <option value="Jetty H/J">Jetty H/J</option>
-                  </>}
+                  <option value="Line 1">Line 1</option>
+                  <option value="Line 2">Line 2</option>
+                  <option value="Line 3">Line 3</option>
+                  <option value="Line 4">Line 4</option>
+                  <option value="Stockroom 2">Stockroom 2</option>
                 </select>
               </Field>
             )}
@@ -611,7 +774,7 @@ export default function JettyOperatorPage() {
         right={filterControl}
         onRefresh={fetchTrips}
         getTap={(tr) => () => selectTrip(tr)}
-        cta={t('cp3Weigh')}
+        getCta={(tr) => tr.status === 'arrived_jetty' ? t('cp3InputWeightCta') : t('cp3Weigh')}
         empty="Tidak ada truk dalam perjalanan"
       />
       <div className="section-label" style={{ marginTop: 4 }}>Semua Trip — {dateFrom === dateTo ? dateFrom : `${dateFrom} s/d ${dateTo}`}</div>
@@ -621,8 +784,8 @@ export default function JettyOperatorPage() {
         trips={rangeTrips}
         loading={rangeLoading}
         onRefresh={fetchRangeTrips}
-        getTap={(tr) => (tr.status === 'in_transit' ? () => selectTrip(tr) : null)}
-        cta={t('cp3Weigh')}
+        getTap={(tr) => (tr.status === 'in_transit' || tr.status === 'arrived_jetty' ? () => selectTrip(tr) : null)}
+        getCta={(tr) => tr.status === 'arrived_jetty' ? t('cp3InputWeightCta') : t('cp3Weigh')}
       />
     </div>
   ) : null;

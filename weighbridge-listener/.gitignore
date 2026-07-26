@@ -1,0 +1,11 @@
+node_modules/
+logs/*.log
+logs/*.prn
+logs/bundletest/
+logs/stationtest/
+dist/
+build/*.zip
+build/*.blob
+build/*.exe
+build/node-win.exe
+tickets.json

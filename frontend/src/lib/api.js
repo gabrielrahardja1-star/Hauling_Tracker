@@ -40,7 +40,19 @@ export const api = {
   // Trips — CP2
   submitCP2: (id, data) => request('PATCH', `/trips/${id}/cp2`, data),
 
-  // Trips — CP3
+  // Pull a staged weighbridge reading, if one exists (null if none yet)
+  async getScaleReading(no_lambung, type) {
+    const params = new URLSearchParams({ no_lambung, type });
+    try {
+      return await request('GET', `/trips/scale-reading?${params}`);
+    } catch (err) {
+      if (String(err.message).includes('No scale reading')) return null;
+      throw err;
+    }
+  },
+
+  // Trips — CP3 (Hasnur two-step: arrive first, then weights)
+  submitCP3Arrive: (id) => request('PATCH', `/trips/${id}/cp3-arrive`, {}),
   submitCP3: (id, data) => request('PATCH', `/trips/${id}/cp3`, data),
 
   // Search today's trip by truck ID (optionally filter by status)
@@ -78,7 +90,9 @@ export const api = {
     const token = _getToken();
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/trips/export?from=${from}&to=${to}&jetty=${jetty}`, { headers });
+    const params = new URLSearchParams({ from, to });
+    if (jetty) params.set('jetty', jetty);
+    const res = await fetch(`${BASE}/trips/export?${params}`, { headers });
     if (!res.ok) {
       const json = await readJson(res).catch(() => ({}));
       throw new Error(json.error || 'Export failed');
