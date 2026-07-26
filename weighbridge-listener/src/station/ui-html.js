@@ -199,8 +199,8 @@ export const UI_HTML = `<!doctype html>
         <label>Kualitas Batubara</label>
         <select id="coalQuality">
           <option value="">Pilih kualitas…</option>
-          <option value="premium">Premium (Raw)</option>
-          <option value="standard">Standard (Clean)</option>
+          <option value="premium">Premium (Clean)</option>
+          <option value="standard">Standard (Raw)</option>
         </select>
       </div>
     </div>
