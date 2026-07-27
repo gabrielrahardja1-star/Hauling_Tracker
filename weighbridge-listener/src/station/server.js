@@ -192,6 +192,7 @@ export function createStation(config = {}) {
             noPolisi: result.entry.noPolisi,
             weightKg: cap.weightKg,
             tripId: result.entry.backendTripId,
+            at: cap.at,
           };
           backendSync.pushCP2(cp2Payload).then((trip) => {
             if (!trip) enqueueSyncJob('cp2', result.entry.noPolisi, cp2Payload);

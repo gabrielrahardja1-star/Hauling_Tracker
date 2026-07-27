@@ -94,7 +94,7 @@ export function createBackendSync({ backendUrl, stationKey }) {
   // Weighing #2 — complete the trip (CP2). Needs the trip_id from pushCP1;
   // looks it up by plate if the station lost track of it (e.g. app restart
   // between weighing #1 and #2, or the CP1 push response was never recorded).
-  async function pushCP2({ noPolisi, weightKg, tripId }) {
+  async function pushCP2({ noPolisi, weightKg, tripId, at }) {
     if (!enabled) return null;
     let id = tripId;
     if (!id) {
@@ -109,7 +109,8 @@ export function createBackendSync({ backendUrl, stationKey }) {
       console.error(`[backendSync] ${last.error}`);
       return null;
     }
-    return withRetry(() => call('PATCH', `/station/trips/${id}/cp2`, { gross_site_kg: weightKg }), `complete trip ${noPolisi}`);
+    const measured_at = at ? (at instanceof Date ? at.toISOString() : new Date(at).toISOString()) : undefined;
+    return withRetry(() => call('PATCH', `/station/trips/${id}/cp2`, { gross_site_kg: weightKg, measured_at }), `complete trip ${noPolisi}`);
   }
 
   // Best-effort, single-attempt (no retry, short timeout) — for reporting a

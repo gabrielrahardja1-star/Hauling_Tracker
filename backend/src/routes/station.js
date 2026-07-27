@@ -133,7 +133,7 @@ router.post('/trips', async (req, res) => {
 // trip directly. Mirrors PATCH /trips/:id/cp2 in trips.js.
 router.patch('/trips/:id/cp2', async (req, res) => {
   const { id } = req.params;
-  const { gross_site_kg } = req.body;
+  const { gross_site_kg, measured_at } = req.body;
 
   if (gross_site_kg == null || gross_site_kg < 0) {
     return res.status(400).json({ error: 'gross_site_kg is required and must not be negative' });
@@ -156,10 +156,11 @@ router.patch('/trips/:id/cp2', async (req, res) => {
 
   const [updated] = await query(
     `update trips
-     set gross_site_kg = $1, netto_site_kg = $2, gross_source = 'scale', cp2_timestamp = now(), status = 'in_transit'
-     where trip_id = $3
+     set gross_site_kg = $1, netto_site_kg = $2, gross_source = 'scale',
+         cp2_timestamp = coalesce($3::timestamptz, now()), status = 'in_transit'
+     where trip_id = $4
      returning *`,
-    [gross_site_kg, netto_site_kg, id]
+    [gross_site_kg, netto_site_kg, measured_at || null, id]
   );
 
   await logAudit(req, 'cp2_entry_station', id, trip, updated);
