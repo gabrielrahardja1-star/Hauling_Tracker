@@ -218,6 +218,7 @@ export function createStation(config = {}) {
         const record = store.commit({
           noPolisi: entry.noPolisi, namaBarang: entry.namaBarang, supplier: entry.supplier,
           noPoDo: entry.noPoDo, keterangan: entry.keterangan, operator: entry.operator, supir: entry.supir,
+          jettyDestination: entry.jettyDestination, coalQuality: entry.coalQuality, cuacaMmi: entry.cuacaMmi,
           ...totals,
           waktu1: entry.weighings[0]?.at, waktu2: entry.weighings[1]?.at,
         });
