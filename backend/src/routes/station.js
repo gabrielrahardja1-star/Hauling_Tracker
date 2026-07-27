@@ -53,19 +53,23 @@ router.post('/readings', async (req, res) => {
   res.status(201).json(reading);
 });
 
-// GET /station/trips/lookup?no_lambung= — find today's trip for a plate.
-// Lets the station recover a trip_id it lost track of (e.g. restart between
-// weighing #1 and #2) before completing CP2.
+// GET /station/trips/lookup?no_lambung= — find the plate's currently
+// in-flight trip (awaiting CP2) for today. Lets the station recover a
+// trip_id it lost track of (e.g. restart between weighing #1 and #2) before
+// completing CP2. Filtered to status='pending' specifically — a plate can
+// have MULTIPLE trips on the same day (a truck doing 2-3 loads), so this
+// must find the one still awaiting departure, not just "any" trip today.
 router.get('/trips/lookup', async (req, res) => {
   const { no_lambung } = req.query;
   if (!no_lambung) return res.status(400).json({ error: 'no_lambung is required' });
 
   const today = witaDate();
   const trip = await queryOne(
-    `select * from trips where date = $1 and no_lambung = $2`,
+    `select * from trips where date = $1 and no_lambung = $2 and status = 'pending'
+     order by cp1_timestamp desc limit 1`,
     [today, no_lambung.trim().toUpperCase()]
   );
-  if (!trip) return res.status(404).json({ error: 'No trip found for this truck today' });
+  if (!trip) return res.status(404).json({ error: 'No trip awaiting CP2 found for this truck today' });
   res.json(trip);
 });
 
@@ -86,10 +90,17 @@ router.post('/trips', async (req, res) => {
   const today = witaDate();
   const lambung = no_lambung.trim().toUpperCase();
 
-  // Idempotency: a retry (e.g. after a timed-out-but-successful first attempt)
-  // must not violate trips' (date, no_lambung) unique constraint — return the
-  // existing trip instead of erroring.
-  const existing = await queryOne(`select * from trips where date = $1 and no_lambung = $2`, [today, lambung]);
+  // Idempotency: a retry (e.g. after a timed-out-but-successful first
+  // attempt) of the SAME weighing must return the existing trip rather than
+  // creating a duplicate. But a plate can legitimately have multiple trips on
+  // the same day (a truck doing 2-3 loads) — so "same request" is only true
+  // if the existing trip is still 'pending' (awaiting CP2). Once a trip has
+  // moved past pending, this plate's next weighing #1 is a genuinely new trip.
+  const existing = await queryOne(
+    `select * from trips where date = $1 and no_lambung = $2 and status = 'pending'
+     order by cp1_timestamp desc limit 1`,
+    [today, lambung]
+  );
   if (existing) return res.status(200).json(existing);
 
   let session = await queryOne(
