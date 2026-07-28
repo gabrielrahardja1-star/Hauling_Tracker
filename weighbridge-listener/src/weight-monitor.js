@@ -78,9 +78,10 @@ export class WeightMonitor extends EventEmitter {
     );
   }
 
-  // Snapshot for a weighing capture. Returns null if not settled.
+  // Snapshot for a weighing capture — whatever the scale reads right now, no
+  // stability wait. Returns null only if no reading has come in at all yet.
   capture() {
-    if (!this.isSettled()) return null;
+    if (!this.current) return null;
     return {
       weightKg: this.current.weightKg,
       mode: this.current.mode,

@@ -162,7 +162,7 @@ export function createStation(config = {}) {
         const { noPolisi } = body;
         if (!noPolisi || !String(noPolisi).trim()) return json(res, 400, { error: 'NO. POLISI is required before weighing.' });
         const cap = monitor.capture();
-        if (!cap) return json(res, 409, { error: 'Weight not settled yet — wait for a stable reading.' });
+        if (!cap) return json(res, 409, { error: 'No weight reading from the scale yet.' });
         let result;
         try {
           result = queue.weigh(noPolisi, cap.weightKg, cap.at, pickFields(body));

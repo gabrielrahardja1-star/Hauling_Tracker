@@ -389,8 +389,8 @@ function updateHint() {
   if (!plate) hint = 'Masukkan NO. POLISI untuk mulai.';
   else if (missingRequired()) hint = 'Pilih Tujuan Jetty, Kualitas Batubara, dan Cuaca sebelum menimbang.';
   else if (form.hasTotals) hint = 'Dua timbangan selesai — periksa data lalu Cetak Tiket.';
-  else if (form.nextWeighing === 1) hint = 'Tekan Timbang untuk Timbangan #1 saat berat stabil.';
-  else hint = 'Tekan Timbang untuk Timbangan #2 saat berat stabil.';
+  else if (form.nextWeighing === 1) hint = 'Tekan Timbang untuk Timbangan #1.';
+  else hint = 'Tekan Timbang untuk Timbangan #2.';
   $('hint').textContent = hint;
 }
 
@@ -519,14 +519,13 @@ async function poll() {
     $('statusText').textContent = s.connected ? ('Terhubung (' + (s.backend || '') + ')') : 'Scale tidak terhubung';
     $('kg').textContent = s.weightKg == null ? '—' : fmt(s.weightKg);
     var pill = $('pill');
-    var settled = s.settled;
     if (!s.connected) { pill.className = 'status-pill pill'; $('pillText').textContent = 'Menunggu…'; }
-    else if (s.stable) { pill.className = 'status-pill pill stable'; $('pillText').textContent = settled ? 'STABIL ✓ siap ditimbang' : 'Stabil…'; }
+    else if (s.stable) { pill.className = 'status-pill pill stable'; $('pillText').textContent = 'STABIL ✓'; }
     else { pill.className = 'status-pill pill moving'; $('pillText').textContent = 'Bergerak (US)'; }
 
     $('noTiket').value = s.nextTiket || '';
     var plate = $('noPolisi').value.trim();
-    $('btnWeigh').disabled = !settled || !plate || form.hasTotals || missingRequired();
+    $('btnWeigh').disabled = !s.connected || !plate || form.hasTotals || missingRequired();
     $('printNote').textContent = s.dryRunPrint ? 'Mode uji: tiket disimpan sebagai file (printer belum diset).' : '';
     renderQueue(s.queue);
 

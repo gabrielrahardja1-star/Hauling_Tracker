@@ -80,10 +80,15 @@ operator step in the main app.
   day-boundary rule the main app uses, so a truck weighed in before midnight
   and out after it still lands on the correct day. Shows a totals line
   (truck count, gross, netto) for whichever day is selected.
-- **Faster weighing capture** (2026-07-28): the software settle-confirmation
-  window (on top of the scale's own ST/US stability flag) was shortened from
-  1500ms to 800ms (`stableMs` in `station/server.js`) — not yet re-verified
-  against electrical noise on the real scale, only in the simulator.
+- **Stability requirement removed entirely** (2026-07-28, superseding the
+  earlier 800ms tuning): `WeightMonitor.capture()` no longer requires
+  `isSettled()` at all — it snapshots whatever the scale currently reads
+  the instant Timbang is pressed, stable or not (`stable: false` / `US` is
+  fine). Operator explicitly asked to remove the wait entirely rather than
+  just shorten it. The "STABIL"/"Bergerak" pill still shows live status for
+  visibility, it just no longer blocks the button. **This is a deliberate
+  trade of a safety rail for speed on a fiscal document (ticket) — flagged
+  to the operator before making the change, they confirmed.**
 - **Re-weigh gross (#2)** (2026-07-28): operators can discard weighing #2 and
   capture it again — e.g. the load looks short and they want a fresh reading
   before the truck leaves. A "Timbang Ulang Gross (#2)" button appears once
@@ -272,6 +277,17 @@ coexistence not yet decided — both are still running in parallel per-site.
      card, enabled once a truck has at least one weighing. Verified in sim:
      edit persists locally, an edit for a plate not in the queue correctly
      404s. **Not yet tested on Windows / against the real backend.**
+- 2026-07-28 (follow-up): **Stability requirement removed entirely.** After
+  shortening `stableMs` to 800ms earlier the same day, the operator asked to
+  go further and remove the wait completely — capture whatever the scale
+  reads the moment Timbang is pressed. `WeightMonitor.capture()` no longer
+  calls `isSettled()`; it only requires *some* reading to have arrived at
+  all. `isSettled()` itself is untouched/still used for the informational
+  "STABIL"/"Bergerak" pill, it just no longer gates the button. Backend's
+  409 message updated to "No weight reading from the scale yet" (was
+  "not settled yet"). Verified in sim: a weighing captured immediately
+  against an unstable (`US`) reading succeeds. All 31 tests still pass.
+  Rebuilt exe. **Not yet tested on Windows.**
 - 2026-07-27: **Stage 2 built and shipped end-to-end** — this is the big one.
   In order, same session:
   1. **v1 (staging + pull)**: migration `020_add_weight_source.sql`
