@@ -4,55 +4,93 @@ Living document for the weighbridge/scale-integration part of Hauling_Tracker.
 Update this as work proceeds. Plain-language plan lives at
 `~/.claude/plans/i-need-you-to-wondrous-brook.md`.
 
-Last updated: 2026-07-24
+Last updated: 2026-07-27
 
 ---
 
 ## 1. Goal (one line)
 
-**Scope decision (2026-07-24): build a STANDALONE weighbridge station that replaces
-the legacy TruckScaleApplication** — read the scale, do two weighings, compute
-gross/tare/netto, and print one `TIKET TIMBANGAN` on the Epson LX-310. (May later
-sync weighings into Hauling_Tracker, but the app integration is deferred.)
+Build a **STANDALONE weighbridge station that replaces the legacy
+TruckScaleApplication** — read the scale, do two weighings, compute
+gross/tare/netto, print one `TIKET TIMBANGAN` on the Epson LX-310, **and push
+each weighing directly into a real Hauling_Tracker trip** (Stage 2) with no
+operator step in the main app.
 
 ## 2. Current status
 
 | Stage | State |
 |-------|-------|
 | Stage 1 — read + parse scale data | **DONE.** Protocol confirmed, parser built + tested. |
-| Standalone station (replaces legacy app) | **On Windows PC, live.** Scale + printing both confirmed working. Just rebuilt with the multi-truck queue — awaiting Windows re-test. |
-| Stage 2 — sync into Hauling_Tracker | Deferred. |
+| Standalone station (replaces legacy app) | **LIVE on PC1**, mid-rollout on PC2 (see §10 incident). Scale + printing confirmed working. |
+| Stage 2 — sync into Hauling_Tracker | **DONE and LIVE.** Station pushes CP1/CP2 directly to the backend as each weighing happens — no "pull from scale" step in the main app (that design was built, then superseded same-day — see §10). |
 
 **Standalone station — what's built (see `STATION.md`):**
 - **Multi-truck queue**: weighings tracked per license plate (`TruckQueue`), not
   a single global session — several trucks can be mid-weighing at once, in any
-  order. Queue persists to `queue.json`, survives an app restart. See §9.
+  order. Queue persists to `queue.json`, survives an app restart.
 - Live weight monitor + stability rule; GROSS/TARE/NETTO computed per truck.
+  **Weighing #1 is always TARE, weighing #2 is always GROSS — by position, not
+  magnitude** (fixed 2026-07-27, see §10; this matches the main app's CP1/CP2
+  semantics exactly since the station pushes each weighing straight into a
+  real trip).
 - Web GUI (Edge app-mode window): plate-first entry with auto lookup, a live
   "Antrian Truk" queue panel, ticket numbering + `tickets.json` persistence.
+  Data Truk form also collects **Tujuan Jetty / Kualitas Batubara / Cuaca**
+  (large segmented-style dropdowns, required before weighing #1) — the station
+  needs these to push a complete CP1 trip on its own. Nama Barang is locked to
+  "BATU BARA"; Supplier auto-fills from the jetty choice (Talenta → `MM
+  TALENTA`, Hasnur → `HJI HBM MMI`); Keterangan is a SOLAR FULL / SOLAR
+  SETENGAH dropdown.
 - Scale reading on Windows via PowerShell/.NET `SerialPort` (same method the
-  legacy app uses) — confirmed working and stable on the real PC (COM5).
+  legacy app uses) — confirmed working and stable.
 - Printing: **document pipeline by default** (matches the legacy app's approach;
-  required for this printer's "V4 Class Driver" — see §9 for why), confirmed
-  printing a real ticket. A raw ESC/P byte mode exists as a fallback (`method: 'raw'`).
+  required for this printer's "V4 Class Driver"), confirmed printing a real
+  ticket. A raw ESC/P byte mode exists as a fallback (`method: 'raw'`).
+- **Backend sync** (`src/station/backendSync.js`): after each weighing, POSTs
+  directly to the main Hauling_Tracker backend (`POST /station/trips` for
+  weighing #1, `PATCH /station/trips/:id/cp2` for weighing #2), authenticated
+  via a shared `WEIGHBRIDGE_STATION_KEY` header (not a user JWT). A visible
+  "Backend: ..." status chip + "Sync Sekarang" button live in the station
+  header. Hardened against a flaky (not fully dead) connection:
+  - Hard JS-level timeout (`Promise.race`, ~5.5s) independent of
+    `AbortController`, so a connection that silently drops packets (rather
+    than refusing) can never hang the local weighing UI.
+  - Concurrency cap (max 3 in-flight pushes) so repeated hung attempts can't
+    pile up and starve the local server.
+  - **Persisted retry queue** (`sync-queue.json`): a push that fails even
+    after backendSync's own retries drops into a queue that's retried
+    automatically every 30s (or on demand via "Sync Sekarang"), and survives
+    an app restart. Backend endpoints are idempotent so replaying a queued
+    job is safe.
+  - System-wide **error reporting**: print failures and other local errors
+    POST to `/station/errors`, viewable in the main app's Admin → Errors
+    panel, alongside backend and frontend errors.
+- **Zero network dependencies in the UI** — the whole point of the station is
+  to keep working on a PC with bad internet, so as of 2026-07-27 it no longer
+  pulls Google Fonts (or anything else) over the network; system font stack
+  only (Segoe UI on Windows).
 - Pure JS (no native modules) → packaged into a single **`build/Timbangan.exe`**
-  (~91 MB) via Node SEA. Config lives in `station.config.json` next to the exe
-  (`serialPath: "COM5"`, `printerName: "EPSON LX-310 (Copy 1)"`).
-- 23 automated tests pass, incl. a dedicated interleaved-multi-truck scenario;
-  also verified live against the real HTTP server (not just unit tests).
-
-**NEXT: re-test the full multi-truck flow on the Windows PC** with the rebuilt
-exe — enter two different plates, weigh them out of order, confirm the queue
-panel shows both correctly, print one, confirm the other survives a restart.
+  (~97.7 MB) via Node SEA. Config lives in `station.config.json` next to the
+  exe — **the filename must be exactly `station.config.json`**, not
+  `station.config.pc2.json` or any other variant (see §10 incident — this
+  exact mistake caused a real data-recovery incident on PC2).
+- 31 automated tests pass.
 
 **Known context for future sessions:**
-- The weighbridge PC has **no WiFi/network adapter** — anything requiring Windows
-  printer *sharing* is unreliable there; always prefer local-only methods (this is
-  why printing was switched away from a network share to local direct printing).
-- Only one program can hold **COM5** at a time — legacy app must be closed before
-  running the station.
-- Windows Print Test Page on "EPSON LX-310 (Copy 1)" is the known-good baseline
-  physical/driver check if printing issues come up again.
+- The weighbridge PC has **no WiFi/network adapter** on some configs — anything
+  requiring Windows printer *sharing* is unreliable there; always prefer
+  local-only methods. Other sites (PC2) do have general internet but it can be
+  **intermittent/flaky** rather than fully up or down — see §10.
+- Only one program can hold the scale's COM port at a time — legacy app must
+  be closed before running the station.
+- Windows Print Test Page is the known-good baseline physical/driver check if
+  printing issues come up again.
+- **A plate CAN have multiple trips on the same day** (a truck doing 2-3
+  loads) — the `trips` table's old `unique_truck_per_day` constraint was
+  already dropped (migration 009, before this session) at the DB level, but
+  application code assumed one-trip-per-plate-per-day until 2026-07-27 (see
+  §10). Any new station/backend logic touching trips-by-plate-by-date must
+  account for this.
 
 ## 3. Hardware setup (confirmed)
 
@@ -116,24 +154,141 @@ node src/capture.js --sim                             # no hardware (fake scale)
 Windows: `list-ports.bat`, then `capture.bat COM3`. Logs are written to `logs/`.
 Known-good settings for this scale: `--baud=9600 --databits=7 --parity=even --stopbits=1`.
 
-## 7. Stage 2 plan (not started — summary)
+## 7. Stage 2 — how it actually works (as built, 2026-07-27)
 
-- Agent on the weighbridge PC reads scale → POSTs latest reading to backend (authenticated,
-  offline queue, idempotent). New `scale_readings` table + `/scale` route. No change to
-  trips/session logic.
-- Stockpile page gets a "Read from scale" button that pulls the latest reading (with
-  freshness), operator confirms, saves via existing CP1/CP2 endpoints.
-- Record provenance (`weight_source` = scale/manual). Decide legacy-app coexistence
-  (retire vs serial splitter) after PoC.
+Two designs were built same-day; the second superseded the first before it was
+ever used in production (see §10 for the full narrative):
+
+**v1 — staging + operator pull (superseded).** Station POSTs raw readings to
+a `scale_readings_pending` staging table (`POST /station/readings`); operator
+manually clicks "Ambil dari Timbangan" in the main app's CP1/CP2 form to pull
+a reading in. Migration `020_add_weight_source.sql` (`tare_source`/
+`gross_source` columns + the staging table). **Still deployed and working**,
+but no longer the primary path — the user asked for a true push instead.
+
+**v2 — direct push (current, live).** The station's own form now collects
+jetty destination / coal quality / weather (the fields CP1 needs that the
+scale can't know), and pushes a *complete* trip directly:
+- `POST /station/trips` (weighing #1/tare) — creates the trip. Idempotent: a
+  retry only returns the existing trip if it's still `status='pending'`; once
+  a trip has moved past pending, the plate's next weighing is treated as a
+  genuinely new trip (this exact bug — treating ANY same-day trip as a dup —
+  shipped for a few hours on 2026-07-27 and is described in §10).
+- `PATCH /station/trips/:id/cp2` (weighing #2/gross) — completes it. Accepts
+  an optional `measured_at` so a backfill script can set the real historical
+  departure time instead of "now".
+- `GET /station/trips/lookup?no_lambung=` — recovery path if the station
+  loses track of a trip_id (restart between weighing #1 and #2); filtered to
+  `status='pending'` for the same reason as above.
+- Auth: `requireStationKey` middleware (`backend/src/middleware/stationAuth.js`),
+  a static `WEIGHBRIDGE_STATION_KEY` header, structurally parallel to
+  `requireAuth`/`requireRole` but for a trusted machine, not a human session.
+- `tare_source`/`gross_source` set to `'scale'` on every station-pushed field.
+
+Record provenance is done (`tare_source`/`gross_source` columns). Legacy-app
+coexistence not yet decided — both are still running in parallel per-site.
 
 ## 8. Open questions / decisions pending
 
 - Confirm kg digit→weight mapping on a real loaded truck.
-- Post-PoC: retire legacy app or run both via serial splitter?
-- Provenance fields now or later?
+- Retire legacy app or run both in parallel long-term? (Currently: parallel.)
+- Should the v1 staging-table/pull-based path (`scale_readings_pending`,
+  "Ambil dari Timbangan" button) be removed now that v2 fully replaces it, or
+  kept as a manual fallback if a station's push ever needs a human override?
+- PC2's site network intermittently can't reach the VPS on port 3002 (or 80,
+  or 443) at all, even though the same network otherwise has internet — cause
+  not identified (site router/ISP-level, not our code). Worth a proper
+  `tracert`/network audit from that site if it keeps happening; the retry
+  queue makes it tolerable but not free of risk (a push that never succeeds
+  before the station operator moves on just sits queued until it does).
 
 ## 9. Change log
 
+- 2026-07-27: **Stage 2 built and shipped end-to-end** — this is the big one.
+  In order, same session:
+  1. **v1 (staging + pull)**: migration `020_add_weight_source.sql`
+     (`tare_source`/`gross_source` on `trips`, `scale_readings_pending`
+     table), `POST /station/readings`, `GET /trips/scale-reading`, "Ambil
+     dari Timbangan" buttons in `StockpileOperatorPage.jsx` CP1/CP2 forms.
+     Verified end-to-end on the VPS.
+  2. **Pivot to v2 (direct push)**: user asked for the station to push
+     complete trips itself, no app-side click. Required jetty/coal/weather
+     fields added to the station's own form; `POST /station/trips` +
+     `PATCH /station/trips/:id/cp2` + `GET /station/trips/lookup` added to
+     `backend/src/routes/station.js`, mirroring `trips.js`'s CP1/CP2 logic
+     under station-key auth instead of a user JWT. `backendSync.js` rewritten
+     around `pushCP1`/`pushCP2`. Verified live on the VPS (curl CP1 → CP2 →
+     confirmed in `trips`).
+  3. **On-site test exposed a UI freeze**: a flaky VPS connection could hang
+     the station's *local* screen entirely (`AbortController` alone didn't
+     reliably unstick a connection that silently drops packets rather than
+     erroring). Fixed with a hard `Promise.race` timeout independent of
+     `AbortController`, plus a concurrency cap (max 3 in-flight pushes) —
+     verified against a `fetch` that never resolves nor rejects: push now
+     reliably completes in ~14s instead of hanging forever.
+  4. **System-wide error reporting** added: new `error_log` table, `POST
+     /errors` (frontend, JWT) + `POST /station/errors` (station key), a new
+     Admin "Errors" panel (mirrors the existing Changelog/audit-log UI),
+     backend's global Express error handler now also logs to it, and a
+     frontend `ErrorBoundary` + `window.onerror`/`unhandledrejection`
+     listeners (there was no client-side error capture at all before this).
+  5. **Persisted retry queue**: on-site testing showed the VPS connection is
+     *intermittent*, not fully dead — a push that failed after backendSync's
+     own retries was simply lost with no recovery path. Added
+     `SyncQueueStore` (`sync-queue.json`), automatic retry every 30s, and a
+     manual "Sync Sekarang" button. Verified end-to-end (a push to an
+     unreachable address enqueues a job; flushing against a working backend
+     removes it and stores the returned `trip_id`).
+  6. **Removed the station's last network dependency**: `ui.html` was pulling
+     Hanken Grotesk from `fonts.googleapis.com` — on a PC whose entire job is
+     to work with a bad connection. Switched to a system-font stack (Segoe UI
+     on Windows). Zero external network calls anywhere in the station now.
+  7. **Fixed GROSS/TARE showing backwards**: `totalsFromWeighings()` picked
+     GROSS/TARE by *magnitude* (a leftover from the pre-Stage-2 "either
+     order" design), while the new push logic assumes strict *position*
+     (weighing #1 = tare, #2 = gross). Whenever weighing #1 read larger than
+     #2, the on-screen totals AND the printed paper ticket both showed it
+     backwards. Made positional to match; updated two tests that depended on
+     the old magnitude-based behavior.
+  8. **Autofill fields** ahead of team training: Nama Barang locked to "BATU
+     BARA"; Supplier auto-fills from jetty choice (Talenta → `MM TALENTA`,
+     Hasnur → `HJI HBM MMI`); Keterangan became a SOLAR FULL/SETENGAH
+     dropdown instead of free text.
+  9. **PC2 incident + recovery** — see the dedicated entry below; this
+     surfaced two more real bugs (`store.commit()` dropping jetty/coal/
+     weather, and a multi-trip-per-day bug) that are now fixed.
+- 2026-07-27: **PC2 incident.** PC2's `Timbangan.exe` was copied to
+  `C:\Users\PC\Desktop\GABRIEL APP\For PC 2\` with its config file still
+  named `station.config.pc2.json` instead of `station.config.json` —
+  `main.js` only ever reads the latter, so the whole config (scale COM port,
+  printer name, `backendUrl`/`stationKey`) silently never loaded all day.
+  Symptom reported as "scale not set and printer doesn't work"; investigation
+  found ~148 real tickets recorded locally (`tickets.json`) that were never
+  synced, plus confirmed the printer was running in dry-run (writing `.prn`
+  files, not printing) for the same reason. Two more bugs found along the way:
+  - **`store.commit()` bug**: the permanent ticket record never carried
+    `jettyDestination`/`coalQuality`/`cuacaMmi` (added earlier same day for
+    the push) — once a truck was printed and removed from the live queue,
+    that data was gone from local storage even though it's required to
+    create a trip. Fixed for all future prints; already-printed tickets were
+    unrecoverable for those 3 fields specifically (worked around per below).
+  - **Multi-trip-per-day bug** (see §7 v2 and §2): `POST /station/trips`
+    treated ANY existing same-day trip for a plate as "this must be a retry"
+    and returned it instead of creating a new one — would have silently
+    merged a truck's 2nd/3rd load into its 1st trip's record. Found because
+    28 of PC2's 148 real tickets were repeat plates on the same day. Fixed
+    (only treat an existing `status='pending'` trip as the same request).
+  - **Recovery**: user confirmed all PC2 tickets are printed (driver-verified
+    exit process, no ticket = no exit) and confirmed PC2 exclusively uses
+    `talenta` / `premium` / `Cerah` for jetty/coal/weather. Wrote
+    `backend/scripts/pc2-backfill.mjs` — reads a copy of `tickets.json`,
+    matches against existing `trips` rows by exact plate+tare+gross (safe to
+    re-run, skips anything already there), creates whatever's genuinely
+    missing via the same station API a live station uses (not raw SQL).
+    Dry-run first, then live run: **120 of 148 had already synced** during
+    the day (connection was up often enough), **28 were recovered**, **0
+    failed**, verified idempotent by re-running immediately after (0 created
+    the second time). Final count matched the operator's own tally exactly.
 - 2026-07-26: UX redesign to match Hauling_Tracker's visual design system.
   Read the real design tokens from `frontend/src/index.css` and component
   patterns from `frontend/src/components/DesignSystem.jsx` (light theme:

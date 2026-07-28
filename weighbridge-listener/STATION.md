@@ -2,16 +2,22 @@
 
 A self-contained weigh-and-print station that replaces the legacy
 TruckScaleApplication: reads the GSC SGW-3015PS scale, does two weighings,
-computes GROSS/TARE/NETTO, and prints one `TIKET TIMBANGAN` on the Epson LX-310.
+computes GROSS/TARE/NETTO, prints one `TIKET TIMBANGAN` on the Epson LX-310,
+**and pushes each weighing directly into a real Hauling_Tracker trip** — no
+step in the main app required.
 
 **Multi-truck queue:** weighings are tracked per license plate (NO. POLISI), not
 as one global "current truck". Several trucks can be mid-weighing at the same
 time — Truck A weighs in and drives off to load while Truck B (or C, D…) weighs
-in and out around it — the app pairs each truck's two weighings correctly
-regardless of order or interleaving. See "Multi-truck workflow" below.
+in and out around it. **Weighing #1 is always TARE (empty, arrival), weighing
+#2 is always GROSS (loaded, departure)** — by position, not magnitude — this
+matches the main app's CP1 (tare/arrival) / CP2 (gross/departure) exactly,
+since each weighing is pushed straight into a real trip as it happens.
 
 Windowed GUI in the browser (Edge app-mode), powered by a single `.exe` — no
-install, runs from USB, works offline. Pure JavaScript, no native modules.
+install, runs from USB, works offline (see "Backend sync" below for what
+"offline" means for the push feature specifically). Pure JavaScript, no
+native modules.
 
 ## Multi-truck workflow
 
@@ -19,20 +25,59 @@ install, runs from USB, works offline. Pure JavaScript, no native modules.
    - **Not found** → new truck, this will be **Timbangan #1**.
    - **Found** (already weighed once) → this is **Timbangan #2**; the truck's
      saved fields (nama barang, supplier, etc.) auto-fill for review.
-2. Operator presses **Timbang** when the weight is stable. After weighing #1,
+2. Operator picks **Tujuan Jetty / Kualitas Batubara / Cuaca** — required
+   before Timbang is enabled (the app pushes a complete trip to the backend
+   as soon as weighing #1 happens, and these 3 fields are required to create
+   one). Nama Barang is locked to "BATU BARA"; Supplier auto-fills from the
+   jetty choice (Talenta → `MM TALENTA`, Hasnur → `HJI HBM MMI`); Keterangan
+   is a SOLAR FULL / SOLAR SETENGAH dropdown.
+3. Operator presses **Timbang** when the weight is stable. After weighing #1,
    the form clears immediately so the operator can move straight to the next
    truck — the just-weighed truck now lives in the **Antrian Truk** (queue)
-   panel at the bottom of the screen.
-3. When that truck returns, the operator can either retype its plate (auto-
+   panel at the bottom of the screen. In the background, the app pushes a new
+   CP1 trip to the backend (see "Backend sync" below).
+4. When that truck returns, the operator can either retype its plate (auto-
    matched) or **tap its row in the queue panel** to load it directly.
-4. After weighing #2, GROSS/TARE/NETTO compute automatically and **Cetak
-   Tiket** becomes enabled. Printing removes the truck from the queue.
-5. **Batal Truk Ini** removes an in-progress truck from the queue without
+5. After weighing #2, GROSS/TARE/NETTO compute automatically and **Cetak
+   Tiket** becomes enabled. Printing removes the truck from the queue. In the
+   background, the app pushes CP2 (completes the trip on the backend).
+6. **Batal Truk Ini** removes an in-progress truck from the queue without
    printing (e.g. a mistaken/duplicate entry). **Reset** just clears the
    on-screen form without touching the queue.
-6. The queue **survives an app restart** (saved to `queue.json` next to the
+7. The queue **survives an app restart** (saved to `queue.json` next to the
    ticket history) — a crash or reboot mid-shift won't lose track of trucks
    still owed a second weighing.
+
+## Backend sync (Stage 2)
+
+Every weighing pushes straight to the main Hauling_Tracker app — no operator
+step there at all. Requires `backendUrl` + `stationKey` in
+`station.config.json` (see below).
+
+- A **"Backend: ..."** status chip in the header shows the live sync state
+  (tersambung / gagal / tidak diatur), so a failed push is never silently
+  invisible to the operator.
+- If a push fails even after its own retries, it drops into a **persisted
+  retry queue** (`sync-queue.json` next to the ticket history) — retried
+  automatically every 30 seconds, or immediately via the **"Sync Sekarang"**
+  button that appears whenever something's pending. Survives an app restart.
+- The connection can be **flaky rather than fully dead** — a hard timeout
+  (~5.5s) guarantees a bad connection can never freeze the local weighing
+  screen, no matter what the underlying socket does.
+- **Local weighing and printing always work regardless of backend
+  connectivity** — this is a convenience sync, never a dependency of the
+  core weighing flow.
+- Print failures and other local errors are also reported to the backend
+  (`/station/errors`) — best-effort, single attempt, never blocks anything —
+  viewable in the main app's Admin → Errors panel.
+
+**⚠️ Real incident (2026-07-27):** on one PC, the config file was copied over
+still named `station.config.pc2.json` instead of `station.config.json` —
+the app silently ran with no scale, no printer, and no backend sync
+configured all day (148 real tickets recorded locally, none synced). The
+filename must be **exactly** `station.config.json`. See `PROGRESS.md` §9 for
+the full incident and the recovery script
+(`backend/scripts/pc2-backfill.mjs`) used to fix it.
 
 ## Seeing all trips + Excel export
 
@@ -71,6 +116,12 @@ must be **tested on Windows**.
 
 1. Copy **`Timbangan.exe`** and **`station.config.json`** onto a USB stick.
    (Copy `station.config.example.json` → `station.config.json` and edit it.)
+   **The filename on the target PC must be exactly `station.config.json`** —
+   not `station.config.pc2.json` or any other variant; `main.js` only ever
+   looks for that literal name next to the exe, and silently runs with
+   everything unconfigured (no scale, no printer, no backend sync) if it
+   doesn't find it. This caused a real incident on 2026-07-27 (see
+   `PROGRESS.md` §9) — double-check the filename after copying, every time.
 2. `station.config.json` fields:
    - `serialPath` — the scale's COM port, e.g. `"COM3"` (check Device Manager).
    - `printerName` — the printer's **exact local Windows name**, e.g.
@@ -84,9 +135,19 @@ must be **tested on Windows**.
      actually the physical printer, then use that exact name. Leave empty to
      run in dry-run (writes .prn files, prints nothing).
    - `startNumber` — set once to continue the legacy ticket sequence, e.g. `17217`.
-3. Put both files in a folder on the PC (e.g. `C:\Timbangan\`). Double-click
+   - `backendUrl` — the main Hauling_Tracker backend, e.g.
+     `"http://<server-ip>:3002"`. Leave unset to run fully local/offline (no
+     push, station still works for weighing + printing).
+   - `stationKey` — must match the backend's `WEIGHBRIDGE_STATION_KEY` env var
+     exactly. Treat as a secret — the real config files
+     (`station.config.json`, `station.config.pc2.json`) are gitignored.
+3. Put both files in a folder on the PC (e.g. `C:\Timbangan\`) — **not** run
+   directly from the USB drive's root, which has caused separate issues
+   before (Windows refuses `mkdir` on a drive root). Double-click
    `Timbangan.exe`. It opens the GUI in an Edge app window. Ticket history is
-   saved to `tickets.json` in that folder.
+   saved to `tickets.json`, the in-progress queue to `queue.json`, and any
+   pending backend syncs to `sync-queue.json`, all in a `data\` subfolder next
+   to the exe.
 
 ## Test plan on Windows (before real use)
 
@@ -124,9 +185,11 @@ must be **tested on Windows**.
 - `src/parser.js` — confirmed GSC frame parser + `FrameReader`.
 - `src/weight-monitor.js` — live reading + stability rule.
 - `src/serial-native.js` — pure-JS serial (Windows: PowerShell/.NET SerialPort; macOS: stty + file read).
-- `src/ticket.js` — `TruckQueue` (multi-truck, keyed by plate) + ticket formatter.
-- `src/station/store.js` — `TicketStore` (printed history) + `QueueStore` (in-progress trucks, restart-safe).
+- `src/ticket.js` — `TruckQueue` (multi-truck, keyed by plate) + ticket formatter. Weighing #1 = tare, #2 = gross by position.
+- `src/station/store.js` — `TicketStore` (printed history), `QueueStore` (in-progress trucks, restart-safe), `SyncQueueStore` (pending backend pushes, restart-safe).
+- `src/station/backendSync.js` — pushes CP1/CP2 to the main Hauling_Tracker backend; hard-timeout + concurrency cap + error reporting.
 - `src/station/export.js` — Excel export (`Di Lokasi` / `Sudah Keluar` sheets via exceljs).
 - `src/printer.js` — print job (Windows document pipeline default, raw ESC/P available / macOS lp / dry-run).
 - `src/station/{server,main,store,ui.html}` — server, entry, storage, GUI.
 - `build/make-exe.mjs` — single-exe builder.
+- `backend/scripts/pc2-backfill.mjs` — one-off recovery script: pushes a station's local `tickets.json` into the real `trips` table for whatever isn't already there. Safe to re-run.
