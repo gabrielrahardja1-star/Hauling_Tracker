@@ -464,12 +464,13 @@ async function fetchHistory() {
     var url = date ? ('/api/recent?date=' + encodeURIComponent(date)) : '/api/recent?n=200';
     var r = await fetch(url);
     var d = await r.json();
+    if (!r.ok) { $('historyTotals').textContent = 'Gagal memuat: ' + (d.error || r.status); return; }
     renderHistory(d.tickets);
     var t = d.totals || {};
     $('historyTotals').textContent = date
       ? (t.count + ' truk · Gross ' + fmt(t.gross) + ' Kg · Netto ' + fmt(t.netto) + ' Kg')
       : '';
-  } catch (e) { /* keep showing what we had */ }
+  } catch (e) { $('historyTotals').textContent = 'Gagal memuat (offline?).'; }
 }
 
 async function cancelTruck(plate) {

@@ -288,6 +288,37 @@ coexistence not yet decided — both are still running in parallel per-site.
   "not settled yet"). Verified in sim: a weighing captured immediately
   against an unstable (`US`) reading succeeds. All 31 tests still pass.
   Rebuilt exe. **Not yet tested on Windows.**
+- 2026-07-29: **BUG FIX — completed trips vanishing from "Sudah Keluar".**
+  Operator reported printed trucks no longer showing up. Root cause: the
+  day-filter feature added 2026-07-28 had two bugs, both in
+  `TicketStore.forDate()`:
+  1. `waktu1`/`waktu2` on a just-committed ticket are live `Date` objects
+     (from the in-memory queue entry), not yet strings — `forDate()` called
+     `.slice(0,10)` on them directly, which doesn't exist on `Date` and threw,
+     500-ing the whole `GET /api/recent?date=` request. The UI's `catch`
+     swallowed it silently, showing an empty table and "undefined truk ·
+     Gross — Kg" (exactly what was reported). Fixed by normalizing
+     `waktu1`/`waktu2` to ISO strings at `commit()` time.
+  2. Even after that, dates were compared using the ISO string's **UTC**
+     date (`.toISOString().slice(0,10)`) against the browser's **local**
+     date (the date picker defaults to local "today"). On a WITA (UTC+8)
+     machine, any truck weighed between roughly midnight and 8am local time
+     has a UTC timestamp still on the *previous* day — so it silently fell
+     out of "today's" filter. This is the more dangerous bug: it wouldn't
+     reproduce reliably (only near the local midnight boundary), so it could
+     easily resurface if not fixed at the root. Fixed by bucketing on the
+     station PC's **local** calendar day (`localDateStr()`, using `Date`'s
+     local getters) instead of the UTC-sliced ISO string — matches the
+     browser's local "today" by construction.
+  Also hardened the UI: a failed `/api/recent` fetch (network or server
+  error) now shows "Gagal memuat: ..." in the totals line instead of
+  silently rendering an empty table — this class of bug should never again
+  be invisible. Verified with a live sim reproduction: printed a truck,
+  queried `?date=<local today>`, confirmed the ticket appears (previously
+  reproduced the exact empty-list/`undefined` symptom before the fix, then
+  confirmed fixed after). All 31 tests still pass. Rebuilt exe.
+  **Not yet tested on Windows** — but this fixes a real, already-observed
+  production bug, so worth prioritizing getting the new exe onto site.
 - 2026-07-27: **Stage 2 built and shipped end-to-end** — this is the big one.
   In order, same session:
   1. **v1 (staging + pull)**: migration `020_add_weight_source.sql`

@@ -5,6 +5,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Local (this PC's system timezone) calendar date, "YYYY-MM-DD", from a
+// Date/ISO-string/anything Date can parse. Returns '' for null/invalid.
+function localDateStr(v) {
+  if (!v) return '';
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d)) return '';
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 export class TicketStore {
   constructor(dataDir) {
     this.dir = dataDir;
@@ -47,6 +56,12 @@ export class TicketStore {
     const record = {
       noTiket: String(this.state.lastNumber).padStart(6, '0'),
       ...ticket,
+      // waktu1/waktu2 arrive as live Date objects (from the in-memory queue
+      // entry, not yet round-tripped through JSON) — normalize to ISO
+      // strings now so every ticket in state.tickets has the same shape,
+      // whether just-committed this run or reloaded from disk.
+      waktu1: ticket.waktu1 ? new Date(ticket.waktu1).toISOString() : ticket.waktu1,
+      waktu2: ticket.waktu2 ? new Date(ticket.waktu2).toISOString() : ticket.waktu2,
       savedAt: new Date().toISOString(),
     };
     this.state.tickets.push(record);
@@ -62,10 +77,15 @@ export class TicketStore {
   // same "day = when the truck entered site" rule used by the main app,
   // not print/departure time. Falls back to savedAt for old records that
   // predate waktu1 being stored. Most recent first.
+  //
+  // Buckets by the LOCAL calendar day (this PC's system clock — the
+  // weighbridge site's actual timezone), not UTC. waktu1 is stored as a UTC
+  // ISO string, so slicing it directly would misfile any truck weighed in
+  // the early-morning hours (UTC date still "yesterday" while it's already
+  // "today" locally, e.g. WITA is UTC+8) — matches the date picker, which
+  // is built from the browser's local date too.
   forDate(dateStr) {
-    return this.state.tickets
-      .filter((t) => ((t.waktu1 || t.savedAt) || '').slice(0, 10) === dateStr)
-      .reverse();
+    return this.state.tickets.filter((t) => localDateStr(t.waktu1 || t.savedAt) === dateStr).reverse();
   }
 
   // Set the starting number once, to continue the legacy sequence (e.g. 17217).
