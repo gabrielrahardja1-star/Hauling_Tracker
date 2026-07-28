@@ -133,7 +133,7 @@ router.post('/trips', async (req, res) => {
 // trip directly. Mirrors PATCH /trips/:id/cp2 in trips.js.
 router.patch('/trips/:id/cp2', async (req, res) => {
   const { id } = req.params;
-  const { gross_site_kg, measured_at } = req.body;
+  const { gross_site_kg, measured_at, reweigh } = req.body;
 
   if (gross_site_kg == null || gross_site_kg < 0) {
     return res.status(400).json({ error: 'gross_site_kg is required and must not be negative' });
@@ -142,9 +142,17 @@ router.patch('/trips/:id/cp2', async (req, res) => {
   const trip = await queryOne('select * from trips where trip_id = $1', [id]);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
-  // Idempotency: a retry after the trip was already completed should return
-  // the current state rather than error.
-  if (trip.status !== 'pending') return res.status(200).json(trip);
+  // `reweigh: true` is an explicit operator action (truck looked under-loaded,
+  // re-weighed before leaving) — allowed to overwrite an already-completed CP2
+  // as long as the trip hasn't moved past that point yet (no jetty arrival).
+  // Without the flag, a non-pending trip is treated as an idempotent retry:
+  // return the current state rather than error or overwrite.
+  if (trip.status !== 'pending') {
+    if (!reweigh) return res.status(200).json(trip);
+    if (trip.status !== 'in_transit') {
+      return res.status(409).json({ error: `Cannot re-weigh — trip has already progressed past departure (status: ${trip.status}).` });
+    }
+  }
 
   if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
   if (trip.session_id) {
@@ -163,7 +171,43 @@ router.patch('/trips/:id/cp2', async (req, res) => {
     [gross_site_kg, netto_site_kg, measured_at || null, id]
   );
 
-  await logAudit(req, 'cp2_entry_station', id, trip, updated);
+  await logAudit(req, reweigh ? 'cp2_reweigh_station' : 'cp2_entry_station', id, trip, updated);
+  res.json(updated);
+});
+
+// PATCH /station/trips/:id/fields — correct jetty/coal/weather on a trip
+// that's still on-site (station-side field edit, e.g. operator picked the
+// wrong jetty by mistake). Only allowed before the trip reaches the jetty —
+// once it's arrived/completed, other parts of the app may already rely on
+// these values, so this is deliberately narrower than the admin's own
+// PATCH /trips/:id (which has no such status guard).
+router.patch('/trips/:id/fields', async (req, res) => {
+  const { id } = req.params;
+  const { jetty_destination, coal_quality, cuaca_mmi } = req.body;
+
+  const trip = await queryOne('select * from trips where trip_id = $1', [id]);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  if (!['pending', 'in_transit'].includes(trip.status)) {
+    return res.status(409).json({ error: `Cannot edit — trip has already progressed (status: ${trip.status}).` });
+  }
+  if (trip.is_locked) return res.status(409).json({ error: 'Trip is locked and cannot be modified' });
+  if (trip.session_id) {
+    const sess = await queryOne('select site_locked from sessions where session_id = $1', [trip.session_id]);
+    if (sess?.site_locked) return res.status(409).json({ error: 'Session site data is locked' });
+  }
+
+  const [updated] = await query(
+    `update trips
+     set jetty_destination = coalesce($1, jetty_destination),
+         coal_quality = coalesce($2, coal_quality),
+         cuaca_mmi = coalesce($3, cuaca_mmi)
+     where trip_id = $4
+     returning *`,
+    [jetty_destination || null, coal_quality || null, cuaca_mmi || null, id]
+  );
+
+  await logAudit(req, 'trip_fields_edit_station', id, trip, updated);
   res.json(updated);
 });
 

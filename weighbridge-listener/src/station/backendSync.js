@@ -94,7 +94,7 @@ export function createBackendSync({ backendUrl, stationKey }) {
   // Weighing #2 — complete the trip (CP2). Needs the trip_id from pushCP1;
   // looks it up by plate if the station lost track of it (e.g. app restart
   // between weighing #1 and #2, or the CP1 push response was never recorded).
-  async function pushCP2({ noPolisi, weightKg, tripId, at }) {
+  async function pushCP2({ noPolisi, weightKg, tripId, at, reweigh }) {
     if (!enabled) return null;
     let id = tripId;
     if (!id) {
@@ -110,7 +110,20 @@ export function createBackendSync({ backendUrl, stationKey }) {
       return null;
     }
     const measured_at = at ? (at instanceof Date ? at.toISOString() : new Date(at).toISOString()) : undefined;
-    return withRetry(() => call('PATCH', `/station/trips/${id}/cp2`, { gross_site_kg: weightKg, measured_at }), `complete trip ${noPolisi}`);
+    return withRetry(() => call('PATCH', `/station/trips/${id}/cp2`, { gross_site_kg: weightKg, measured_at, reweigh: !!reweigh }), `complete trip ${noPolisi}`);
+  }
+
+  // Corrects jetty/coal/weather on an already-pushed trip — e.g. the operator
+  // fixes a mis-entered field while the truck is still in the queue. Only
+  // called when we already have a trip_id (weighing #1 succeeded); if it
+  // didn't, there's nothing on the backend yet to correct.
+  async function pushFieldEdit({ tripId, jettyDestination, coalQuality, cuacaMmi }) {
+    if (!enabled || !tripId) return null;
+    return withRetry(() => call('PATCH', `/station/trips/${tripId}/fields`, {
+      jetty_destination: jettyDestination || undefined,
+      coal_quality: coalQuality || undefined,
+      cuaca_mmi: cuacaMmi || undefined,
+    }), `edit trip fields ${tripId}`);
   }
 
   // Best-effort, single-attempt (no retry, short timeout) — for reporting a
@@ -132,5 +145,5 @@ export function createBackendSync({ backendUrl, stationKey }) {
     }
   }
 
-  return { enabled, pushCP1, pushCP2, reportError, status: () => last };
+  return { enabled, pushCP1, pushCP2, pushFieldEdit, reportError, status: () => last };
 }

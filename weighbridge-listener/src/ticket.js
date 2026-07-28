@@ -75,6 +75,22 @@ export class TruckQueue {
     return { entry, weighingNumber: entry.weighings.length };
   }
 
+  // Discard weighing #2 (gross) so the operator can re-weigh — e.g. the truck
+  // looks under-loaded and they want a fresh reading before the ticket is
+  // printed. Only valid once both weighings are recorded; weighing #1 (tare)
+  // is untouched. Marks the entry so the next capture knows to overwrite the
+  // already-pushed backend trip instead of being treated as a stale retry.
+  undoWeighing2(noPolisi) {
+    const entry = this.lookup(noPolisi);
+    if (!entry) throw new Error(`${noPolisi} is not in the queue.`);
+    if (entry.weighings.length < 2) {
+      throw new Error(`${entry.noPolisi} has not been weighed twice yet — nothing to redo.`);
+    }
+    entry.weighings.pop();
+    entry.pendingReweigh = true;
+    return entry;
+  }
+
   // Update truck-detail fields without weighing (e.g. editing before print).
   updateFields(noPolisi, fields = {}) {
     const entry = this.lookup(noPolisi);

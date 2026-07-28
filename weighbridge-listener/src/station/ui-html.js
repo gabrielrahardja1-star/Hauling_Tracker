@@ -174,6 +174,9 @@ export const UI_HTML = `<!doctype html>
       <button class="btn btn-secondary" id="btnReset">Reset</button>
     </div>
     <div class="actions">
+      <button class="btn btn-secondary" id="btnReweigh2" style="display:none;">Timbang Ulang Gross (#2)</button>
+    </div>
+    <div class="actions">
       <button class="btn btn-danger" id="btnCancel">Batal Truk Ini</button>
     </div>
     <p class="muted" id="hint" style="margin-top:12px;"></p>
@@ -226,6 +229,9 @@ export const UI_HTML = `<!doctype html>
       <div><label>Supir</label><input id="supir" placeholder="nama supir" /></div>
     </div>
     <div class="actions">
+      <button class="btn btn-secondary" id="btnSaveEdit" style="display:none;">Simpan Perubahan</button>
+    </div>
+    <div class="actions">
       <button class="btn btn-primary" id="btnPrint" disabled>Cetak Tiket (Print)</button>
     </div>
     <p class="muted" id="printNote"></p>
@@ -245,6 +251,13 @@ export const UI_HTML = `<!doctype html>
       <button class="filter-btn active" data-filter="all">Semua</button>
       <button class="filter-btn" data-filter="awaiting_second">Menunggu #2</button>
       <button class="filter-btn" data-filter="ready">Siap Cetak</button>
+    </div>
+
+    <div id="historyFilters" class="filters" style="display:none; align-items:center;">
+      <label style="margin:0; font-size:12.5px; font-weight:700; color:var(--text-2);">Tanggal:</label>
+      <input type="date" id="historyDate" style="width:auto; min-height:36px; padding:0 10px; font-size:13px;" />
+      <button class="filter-btn" id="btnHistoryToday">Hari Ini</button>
+      <span class="muted" id="historyTotals" style="margin-left:auto;"></span>
     </div>
 
     <table class="data-table" id="siteTable">
@@ -313,6 +326,8 @@ function resetForm() {
   setBox('w1', null); setBox('w2', null);
   $('tGross').textContent = '—'; $('tTare').textContent = '—'; $('tNetto').textContent = '—';
   $('btnPrint').disabled = true;
+  $('btnReweigh2').style.display = 'none';
+  $('btnSaveEdit').style.display = 'none';
   updateHint();
 }
 
@@ -345,6 +360,8 @@ function loadEntryIntoForm(entry) {
     banner.textContent = 'Truk ' + entry.noPolisi + ' sudah ditimbang 1x (' + fmt(entry.weighings[0].weightKg) + ' Kg) — ini Timbangan #2.';
   }
   $('btnPrint').disabled = !entry.totals;
+  $('btnReweigh2').style.display = entry.totals ? 'inline-flex' : 'none';
+  $('btnSaveEdit').style.display = 'inline-flex';
   updateHint();
 }
 
@@ -357,6 +374,8 @@ function showNewTruckBanner(plate) {
   setBox('w1', null); setBox('w2', null);
   $('tGross').textContent = '—'; $('tTare').textContent = '—'; $('tNetto').textContent = '—';
   $('btnPrint').disabled = true;
+  $('btnReweigh2').style.display = 'none';
+  $('btnSaveEdit').style.display = 'none';
   updateHint();
 }
 
@@ -435,11 +454,22 @@ function renderHistory(list) {
   }
 }
 
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 async function fetchHistory() {
   try {
-    var r = await fetch('/api/recent?n=200');
+    var date = $('historyDate').value;
+    var url = date ? ('/api/recent?date=' + encodeURIComponent(date)) : '/api/recent?n=200';
+    var r = await fetch(url);
     var d = await r.json();
     renderHistory(d.tickets);
+    var t = d.totals || {};
+    $('historyTotals').textContent = date
+      ? (t.count + ' truk · Gross ' + fmt(t.gross) + ' Kg · Netto ' + fmt(t.netto) + ' Kg')
+      : '';
   } catch (e) { /* keep showing what we had */ }
 }
 
@@ -456,6 +486,7 @@ function setTab(tab) {
   $('tabSite').className = 'tab' + (tab === 'site' ? ' active' : '');
   $('tabLeft').className = 'tab' + (tab === 'left' ? ' active' : '');
   $('filters').style.display = tab === 'site' ? 'flex' : 'none';
+  $('historyFilters').style.display = tab === 'left' ? 'flex' : 'none';
   $('siteTable').style.display = tab === 'site' ? '' : 'none';
   $('queueEmpty').style.display = (tab === 'site' && lastQueue.length === 0) ? 'block' : 'none';
   $('leftTable').style.display = tab === 'left' ? '' : 'none';
@@ -465,6 +496,8 @@ function setTab(tab) {
 
 $('tabSite').onclick = function () { setTab('site'); };
 $('tabLeft').onclick = function () { setTab('left'); };
+$('historyDate').addEventListener('change', fetchHistory);
+$('btnHistoryToday').onclick = function () { $('historyDate').value = todayStr(); fetchHistory(); };
 
 var filterButtons = document.querySelectorAll('.filter-btn');
 for (var fi = 0; fi < filterButtons.length; fi++) {
@@ -555,6 +588,29 @@ $('btnWeigh').onclick = async function () {
 
 $('btnReset').onclick = function () { resetForm(); toast('Form dikosongkan.'); };
 
+$('btnSaveEdit').onclick = async function () {
+  var plate = $('noPolisi').value.trim();
+  if (!plate) return;
+  var body = collectFields(); body.noPolisi = plate;
+  var r = await fetch('/api/truck/edit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  var d = await r.json();
+  if (!r.ok) return toast(d.error || 'gagal simpan');
+  if (d.queue) renderQueue(d.queue);
+  toast('Perubahan disimpan untuk ' + plate + '.');
+};
+
+$('btnReweigh2').onclick = async function () {
+  var plate = $('noPolisi').value.trim();
+  if (!plate) return;
+  if (!confirm('Batalkan Timbangan #2 untuk ' + plate + ' dan timbang ulang gross-nya?')) return;
+  var r = await fetch('/api/truck/reweigh2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ noPolisi: plate }) });
+  var d = await r.json();
+  if (!r.ok) return toast(d.error || 'gagal');
+  loadEntryIntoForm(d.entry);
+  if (d.queue) renderQueue(d.queue);
+  toast(plate + ' siap ditimbang ulang (#2).');
+};
+
 $('btnCancel').onclick = function () {
   var plate = $('noPolisi').value.trim();
   if (!plate) return toast('Tidak ada truk yang dipilih.');
@@ -574,6 +630,7 @@ $('btnPrint').onclick = async function () {
   poll();
 };
 
+$('historyDate').value = todayStr();
 resetForm();
 poll(); setInterval(poll, 350);
 </script>

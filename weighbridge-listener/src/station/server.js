@@ -114,7 +114,7 @@ export function createStation(config = {}) {
 
   setInterval(() => { flushSyncQueue().catch(() => {}); }, 30000);
 
-  const monitor = new WeightMonitor({ path: serialPath, sim, stableMs: 1500 }).start();
+  const monitor = new WeightMonitor({ path: serialPath, sim, stableMs: 800 }).start();
   let status = { connected: false };
   monitor.on('status', (s) => { status = s; });
 
@@ -188,11 +188,14 @@ export function createStation(config = {}) {
             else enqueueSyncJob('cp1', result.entry.noPolisi, cp1Payload);
           });
         } else if (result.weighingNumber === 2) {
+          const wasReweigh = !!result.entry.pendingReweigh;
+          if (wasReweigh) { delete result.entry.pendingReweigh; persistQueue(); }
           const cp2Payload = {
             noPolisi: result.entry.noPolisi,
             weightKg: cap.weightKg,
             tripId: result.entry.backendTripId,
             at: cap.at,
+            reweigh: wasReweigh,
           };
           backendSync.pushCP2(cp2Payload).then((trip) => {
             if (!trip) enqueueSyncJob('cp2', result.entry.noPolisi, cp2Payload);
@@ -205,6 +208,45 @@ export function createStation(config = {}) {
           totals: queue.totalsFor(result.entry),
           queue: queue.list(),
         });
+      }
+
+      // Correct a truck's details while it's still on-site — supplier/PO-DO/
+      // keterangan/operator/supir are local-only (only appear on the printed
+      // ticket, never on the backend trip); jetty/coal/weather DO exist on
+      // the backend trip too, so if this plate already has a pushed trip_id,
+      // best-effort push the same correction there.
+      if (route === 'POST /api/truck/edit') {
+        const body = await readBody(req);
+        const { noPolisi } = body;
+        const entry = queue.updateFields(noPolisi, pickFields(body));
+        if (!entry) return json(res, 404, { error: `${noPolisi || '(no plate)'} is not in the queue.` });
+        persistQueue();
+        if (entry.backendTripId) {
+          backendSync.pushFieldEdit({
+            tripId: entry.backendTripId,
+            jettyDestination: body.jettyDestination,
+            coalQuality: body.coalQuality,
+            cuacaMmi: body.cuacaMmi,
+          }).then((updated) => {
+            if (!updated) backendSync.reportError(`Field edit for ${entry.noPolisi} did not sync to backend`, { tripId: entry.backendTripId });
+          });
+        }
+        return json(res, 200, { ok: true, entry, queue: queue.list() });
+      }
+
+      // Discard weighing #2 (gross) and re-open the truck for a fresh 2nd
+      // weighing — e.g. the load looks short and the operator wants to
+      // re-weigh before printing/departure. Weighing #1 (tare) is untouched.
+      if (route === 'POST /api/truck/reweigh2') {
+        const { noPolisi } = await readBody(req);
+        let entry;
+        try {
+          entry = queue.undoWeighing2(noPolisi);
+        } catch (e) {
+          return json(res, 409, { error: e.message });
+        }
+        persistQueue();
+        return json(res, 200, { ok: true, entry, queue: queue.list() });
       }
 
       if (route === 'POST /api/truck/print') {
@@ -247,10 +289,18 @@ export function createStation(config = {}) {
       }
 
       // "Sudah Keluar" (already left the site) — printed ticket history.
-      // ?n= how many to return (default 100, capped at 2000).
+      // ?n= how many to return (default 100, capped at 2000), or ?date=YYYY-MM-DD
+      // to see one day's trucks (bucketed by Timbangan #1 / arrival), with totals.
       if (route === 'GET /api/recent') {
-        const n = Math.min(2000, Math.max(1, Number(url.searchParams.get('n')) || 100));
-        return json(res, 200, { tickets: store.recent(n) });
+        const date = url.searchParams.get('date');
+        const tickets = date
+          ? store.forDate(date)
+          : store.recent(Math.min(2000, Math.max(1, Number(url.searchParams.get('n')) || 100)));
+        const totals = tickets.reduce(
+          (a, t) => ({ gross: a.gross + (t.gross || 0), tare: a.tare + (t.tare || 0), netto: a.netto + (t.netto || 0) }),
+          { gross: 0, tare: 0, netto: 0 }
+        );
+        return json(res, 200, { tickets, totals: { ...totals, count: tickets.length } });
       }
 
       // Downloads one .xlsx with both "Di Lokasi" (still on site, the queue)

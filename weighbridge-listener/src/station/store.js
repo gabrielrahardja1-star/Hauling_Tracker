@@ -58,6 +58,16 @@ export class TicketStore {
     return this.state.tickets.slice(-n).reverse();
   }
 
+  // Tickets for one calendar day, keyed by Timbangan #1 (truck arrival) —
+  // same "day = when the truck entered site" rule used by the main app,
+  // not print/departure time. Falls back to savedAt for old records that
+  // predate waktu1 being stored. Most recent first.
+  forDate(dateStr) {
+    return this.state.tickets
+      .filter((t) => ((t.waktu1 || t.savedAt) || '').slice(0, 10) === dateStr)
+      .reverse();
+  }
+
   // Set the starting number once, to continue the legacy sequence (e.g. 17217).
   setStartNumber(n) {
     if (this.state.lastNumber === 0 && Number.isFinite(n)) {

@@ -4,7 +4,7 @@ Living document for the weighbridge/scale-integration part of Hauling_Tracker.
 Update this as work proceeds. Plain-language plan lives at
 `~/.claude/plans/i-need-you-to-wondrous-brook.md`.
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 ---
 
@@ -74,7 +74,34 @@ operator step in the main app.
   exe — **the filename must be exactly `station.config.json`**, not
   `station.config.pc2.json` or any other variant (see §10 incident — this
   exact mistake caused a real data-recovery incident on PC2).
-- 31 automated tests pass.
+- **Per-day view + daily totals** (2026-07-28): the "Sudah Keluar" tab has a
+  date picker (defaults to today) that filters printed tickets to one
+  calendar day — bucketed by Timbangan #1 (truck arrival), the same
+  day-boundary rule the main app uses, so a truck weighed in before midnight
+  and out after it still lands on the correct day. Shows a totals line
+  (truck count, gross, netto) for whichever day is selected.
+- **Faster weighing capture** (2026-07-28): the software settle-confirmation
+  window (on top of the scale's own ST/US stability flag) was shortened from
+  1500ms to 800ms (`stableMs` in `station/server.js`) — not yet re-verified
+  against electrical noise on the real scale, only in the simulator.
+- **Re-weigh gross (#2)** (2026-07-28): operators can discard weighing #2 and
+  capture it again — e.g. the load looks short and they want a fresh reading
+  before the truck leaves. A "Timbang Ulang Gross (#2)" button appears once
+  both weighings are done and the ticket hasn't printed yet; tare (weighing
+  #1) is untouched. On the backend, this is an explicit `reweigh: true` flag
+  on `PATCH /station/trips/:id/cp2`, allowed only while the trip is still
+  `in_transit` (hasn't reached the jetty yet) — otherwise rejected with a
+  clear error instead of silently overwriting data downstream already relies
+  on. Ordinary retries (no flag) keep the old idempotent-no-op behavior.
+- **Edit truck details on-site** (2026-07-28): a "Simpan Perubahan" button
+  lets an operator correct any Data Truk field (jetty/coal/weather, supplier,
+  PO/DO, keterangan, operator, supir) for a truck still in the queue, without
+  needing to wait for the next weighing or print. Jetty/coal/weather also
+  sync as a correction to the already-pushed backend trip via a new
+  `PATCH /station/trips/:id/fields`; the rest are local-only fields that
+  never existed on the `trips` table. Guarded the same way as the reweigh
+  feature: rejected once the trip has already reached the jetty.
+- 31 automated tests pass (`parser.test.js` + `parse.test.js` + `export.test.js`).
 
 **Known context for future sessions:**
 - The weighbridge PC has **no WiFi/network adapter** on some configs — anything
@@ -204,6 +231,47 @@ coexistence not yet decided — both are still running in parallel per-site.
 
 ## 9. Change log
 
+- 2026-07-28: **Three operator-facing fixes**, all shipped together:
+  1. **Per-day view + totals.** User pointed out there was no way to see a
+     given day's trucks/totals on the station itself (the main app's Admin/
+     Jetty pages already had date filters — the station never did). Added
+     `TicketStore.forDate()` (buckets by Timbangan #1/arrival, same rule as
+     `trips.date` in the backend) and `GET /api/recent?date=YYYY-MM-DD`
+     (returns matching tickets + `{gross, tare, netto, count}` totals). UI:
+     date picker + "Hari Ini" button + totals line on the "Sudah Keluar" tab,
+     defaulting to today.
+  2. **Stabilization delay shortened**: `stableMs` 1500ms → 800ms
+     (`station/server.js`, `weight-monitor.js`'s only call site) — the
+     software settle-confirmation on top of the scale's own ST/US flag was
+     making operators wait longer than needed. Verified in sim (~1.1s to
+     settled including ramp time); **real-scale noise not yet tested**.
+  3. **Re-weigh gross (#2)**: an operator flagged that trucks sometimes look
+     under-loaded at the gross weighing and need a second try before leaving.
+     Added `TruckQueue.undoWeighing2()` (pops weighing #2 only, tare
+     untouched, marks `pendingReweigh`) wired to a new "Timbang Ulang Gross
+     (#2)" button and `POST /api/truck/reweigh2`. The subsequent re-capture
+     pushes `PATCH /station/trips/:id/cp2` with `reweigh: true`, which the
+     backend (`backend/src/routes/station.js`) now allows to overwrite an
+     already-completed CP2 **only** while the trip is still `in_transit`
+     (rejected with a clear error if it's already reached the jetty) —
+     ordinary retries without the flag keep the prior idempotent-no-op
+     behavior. Verified with a live sim run: weigh #1 → weigh #2 → reweigh →
+     weigh #2 again, correct at every step. All 31 tests still pass.
+     **Not yet tested on Windows / against the real backend on the VPS.**
+  4. **Edit truck details on-site**: user asked for a way to fix a truck's
+     details (wrong jetty, supplier typo, etc.) while it's still in the
+     queue. Added `POST /api/truck/edit` (local, calls the existing
+     `TruckQueue.updateFields()`) plus a new backend endpoint
+     `PATCH /station/trips/:id/fields` (station-key auth) so jetty/coal/
+     weather corrections also land on the already-created trip — guarded
+     the same way as the reweigh feature (rejected once `status` is past
+     `in_transit`, i.e. already at the jetty). Fields that don't exist on
+     the `trips` table at all (supplier, PO/DO, keterangan, operator, supir)
+     stay local-only, same as they always have been (they only ever appear
+     on the printed ticket). "Simpan Perubahan" button in the Data Truk
+     card, enabled once a truck has at least one weighing. Verified in sim:
+     edit persists locally, an edit for a plate not in the queue correctly
+     404s. **Not yet tested on Windows / against the real backend.**
 - 2026-07-27: **Stage 2 built and shipped end-to-end** — this is the big one.
   In order, same session:
   1. **v1 (staging + pull)**: migration `020_add_weight_source.sql`

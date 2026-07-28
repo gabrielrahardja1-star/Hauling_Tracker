@@ -40,11 +40,23 @@ native modules.
    matched) or **tap its row in the queue panel** to load it directly.
 5. After weighing #2, GROSS/TARE/NETTO compute automatically and **Cetak
    Tiket** becomes enabled. Printing removes the truck from the queue. In the
-   background, the app pushes CP2 (completes the trip on the backend).
-6. **Batal Truk Ini** removes an in-progress truck from the queue without
+   background, the app pushes CP2 (completes the trip on the backend). If the
+   load looks short, **Timbang Ulang Gross (#2)** discards weighing #2 (tare
+   is untouched) and re-opens the truck for a fresh 2nd weighing — see
+   "Re-weighing gross" below.
+6. **Editing a truck's details while it's still on-site**: pull it up (retype
+   its plate or tap its row — works after weighing #1, before or after
+   weighing #2, as long as it hasn't printed yet) and edit any field in the
+   Data Truk form, then press **Simpan Perubahan** to save without weighing
+   or printing. Jetty/coal/weather also get pushed as a correction to the
+   backend trip (if one's already been created); supplier/PO-DO/keterangan/
+   operator/supir are local-only (they only ever appear on the printed
+   ticket) and never touch the backend. The backend rejects the jetty/coal/
+   weather correction once the trip has already reached the jetty.
+7. **Batal Truk Ini** removes an in-progress truck from the queue without
    printing (e.g. a mistaken/duplicate entry). **Reset** just clears the
    on-screen form without touching the queue.
-7. The queue **survives an app restart** (saved to `queue.json` next to the
+8. The queue **survives an app restart** (saved to `queue.json` next to the
    ticket history) — a crash or reboot mid-shift won't lose track of trucks
    still owed a second weighing.
 
@@ -79,13 +91,34 @@ filename must be **exactly** `station.config.json`. See `PROGRESS.md` §9 for
 the full incident and the recovery script
 (`backend/scripts/pc2-backfill.mjs`) used to fix it.
 
+## Re-weighing gross (#2)
+
+Sometimes a truck looks under-loaded at the 2nd weighing and the operator
+wants to re-check before it leaves. Once both weighings are recorded (and the
+ticket hasn't printed yet), a **"Timbang Ulang Gross (#2)"** button appears:
+it discards weighing #2 only — tare (weighing #1) is never touched — and puts
+the truck back into "awaiting weighing #2" so the operator can capture a
+fresh reading.
+
+On the backend side, the already-pushed CP2 trip is updated in place rather
+than creating a duplicate: the station sends `PATCH /station/trips/:id/cp2`
+with `reweigh: true`, which is only honored while the trip is still
+`in_transit` (i.e. hasn't been received at the jetty yet) — if it's already
+progressed further, the overwrite is rejected with a clear error rather than
+silently corrupting downstream data. A normal (non-reweigh) retry of the same
+push still behaves as before: idempotent, returns the existing trip, no
+overwrite.
+
 ## Seeing all trips + Excel export
 
 The bottom panel ("Daftar Truk") has two tabs:
 - **Di Lokasi** — trucks currently on site (the queue above), with status
   filter buttons (Semua / Menunggu #2 / Siap Cetak).
-- **Sudah Keluar** — trucks that already left (printed tickets), most recent
-  first, refreshed automatically while that tab is open.
+- **Sudah Keluar** — trucks that already left (printed tickets). Has a date
+  picker (defaults to today, "Hari Ini" button to reset) that filters to one
+  day's trucks — bucketed by Timbangan #1 (arrival), same rule as the main
+  app's `trips.date` — plus a totals line (truck count, gross, netto) for
+  whatever day is selected. Refreshed automatically while the tab is open.
 
 **⬇ Unduh Excel** downloads one `.xlsx` with both lists as separate sheets
 ("Di Lokasi" and "Sudah Keluar") — useful for handing off a snapshot of the
@@ -185,8 +218,8 @@ must be **tested on Windows**.
 - `src/parser.js` — confirmed GSC frame parser + `FrameReader`.
 - `src/weight-monitor.js` — live reading + stability rule.
 - `src/serial-native.js` — pure-JS serial (Windows: PowerShell/.NET SerialPort; macOS: stty + file read).
-- `src/ticket.js` — `TruckQueue` (multi-truck, keyed by plate) + ticket formatter. Weighing #1 = tare, #2 = gross by position.
-- `src/station/store.js` — `TicketStore` (printed history), `QueueStore` (in-progress trucks, restart-safe), `SyncQueueStore` (pending backend pushes, restart-safe).
+- `src/ticket.js` — `TruckQueue` (multi-truck, keyed by plate) + ticket formatter. Weighing #1 = tare, #2 = gross by position. `undoWeighing2()` powers the re-weigh flow.
+- `src/station/store.js` — `TicketStore` (printed history, `forDate()` for the day filter), `QueueStore` (in-progress trucks, restart-safe), `SyncQueueStore` (pending backend pushes, restart-safe).
 - `src/station/backendSync.js` — pushes CP1/CP2 to the main Hauling_Tracker backend; hard-timeout + concurrency cap + error reporting.
 - `src/station/export.js` — Excel export (`Di Lokasi` / `Sudah Keluar` sheets via exceljs).
 - `src/printer.js` — print job (Windows document pipeline default, raw ESC/P available / macOS lp / dry-run).
